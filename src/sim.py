@@ -640,6 +640,7 @@ class Config:
     seed: int = 0
     execution_mode: str = "blocking"  # "blocking" | "speculative"
     gamma: int = 4                     # tokens per chunk
+    max_conversations: Optional[int] = None
     
     # Conversation parameters (NEW)
     answer_length: int = 20           # tokens per answer (can be overridden by distribution)
@@ -1868,9 +1869,34 @@ class DraftServer:
         self.total_round_trip_time = 0.0
         self._recent_acceptance: Dict[str, float] = {}
         self._acceptance_smoothing = float(getattr(cfg, "gamma_acceptance_smoothing", 0.5) or 0.5)
+        self._initialize_recent_acceptance()
         
         self._gamma_oracle_logger = gamma_oracle_logger
         self.proc = env.process(self._generate_blocking())
+
+    def _initialize_recent_acceptance(self) -> None:
+        default_rate = self.cfg.acceptance_config.get("default_rate")
+        if default_rate is None:
+            raise RuntimeError(
+                "acceptance_config.default_rate must be set when empirical acceptance tracking is required"
+            )
+        for target_id, conn in self.connections.items():
+            base = conn.acceptance_rate if conn.acceptance_rate is not None else default_rate
+            base = max(0.0, min(1.0, float(base)))
+            self._recent_acceptance[target_id] = base
+
+    def _maybe_stop_after_conversation(self) -> None:
+        limit = getattr(self.cfg, "max_conversations", None)
+        if not limit:
+            return
+        convs = getattr(self.metrics, "conversations", [])
+        if len(convs) >= int(limit):
+            if self.cfg.verbose:
+                print(
+                    f"[{self.env.now:.1f}ms] Draft {self.id}: reached {len(convs)}/{limit} conversations",
+                    flush=True,
+                )
+            self.env.exit()
 
     def _ia(self) -> float:
         """Inter-arrival time between generation sessions"""
@@ -2607,8 +2633,14 @@ class DraftServer:
                 ttft_breakdown=ttft_breakdown,
                 decode_breakdown=decode_breakdown,
             )
+            if self.cfg.verbose and self.cfg.max_conversations:
+                conv_count = len(getattr(self.metrics, "conversations", []))
+                print(
+                    f"[{self.env.now:.1f}ms] Draft {self.id}: conversation {conv_count}/{self.cfg.max_conversations}",
+                    flush=True,
+                )
+            self._maybe_stop_after_conversation()
 
-    
     def _generate_blocking(self):
         """Blocking mode: generate full conversations with multiple speculation rounds"""
         if self.cfg.verbose:
@@ -3096,15 +3128,22 @@ class DraftServer:
                         start_ms=conversation_start,
                         end_ms=self.env.now,
                         draft_id=self.id,
-                            target_id=target_id,
-                            tokens_generated=tokens_generated_in_conversation,
-                            tokens_accepted=tokens_accepted_in_conversation,
-                            answer_tokens=answer_length,
-                            ttft_ms=ttft_ms,
-                            tpot_samples=conversation_tpot_samples,
-                            ttft_breakdown=ttft_breakdown,
-                            decode_breakdown=decode_breakdown,
-                        )
+                        target_id=target_id,
+                        tokens_generated=tokens_generated_in_conversation,
+                        tokens_accepted=tokens_accepted_in_conversation,
+                        answer_tokens=answer_length,
+                        ttft_ms=ttft_ms,
+                        tpot_samples=conversation_tpot_samples,
+                        ttft_breakdown=ttft_breakdown,
+                        decode_breakdown=decode_breakdown,
+                    )
+                if self.cfg.verbose and self.cfg.max_conversations:
+                    conv_count = len(getattr(self.metrics, "conversations", []))
+                    print(
+                        f"[{self.env.now:.1f}ms] Draft {self.id}: conversation {conv_count}/{self.cfg.max_conversations}",
+                        flush=True,
+                    )
+                    self._maybe_stop_after_conversation()
 
                     avg_rtt = (
                         sum(conversation_rtt_samples) / len(conversation_rtt_samples)
@@ -4522,6 +4561,7 @@ def _build_config_from_mapping(data: Mapping[str, Any]) -> Config:
         seed=raw.get("seed", 0),
         execution_mode=raw.get("execution_mode", "blocking"),
         gamma=raw.get("gamma", 4),
+        max_conversations=raw.get("max_conversations"),
         # Conversation parameters - IMPORTANT: read from YAML
         answer_length=raw.get("answer_length", 20),
         answer_length_mean=raw.get("answer_length_mean", 400),
