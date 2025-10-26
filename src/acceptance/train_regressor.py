@@ -12,7 +12,7 @@ import json
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent.parent
@@ -21,7 +21,12 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import joblib
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.ensemble import (
+    GradientBoostingClassifier,
+    GradientBoostingRegressor,
+    RandomForestClassifier,
+    RandomForestRegressor,
+)
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.model_selection import train_test_split
 
@@ -97,6 +102,18 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=None,
         help="Maximum tree depth (default None => unrestricted).",
+    )
+    parser.add_argument(
+        "--learning-rate",
+        type=float,
+        default=0.1,
+        help="Learning rate for gradient boosting models (ignored for RandomForest).",
+    )
+    parser.add_argument(
+        "--algorithm",
+        choices=("random_forest", "gradient_boosting"),
+        default="random_forest",
+        help="Model family to train (default: random_forest).",
     )
     parser.add_argument(
         "--print-report",
@@ -208,23 +225,34 @@ def train_models(
     max_depth: Optional[int],
     random_state: int,
     test_size: float,
-) -> Tuple[
-    RandomForestRegressor,
-    RandomForestClassifier,
-    Dict[str, float],
-]:
+    algorithm: str,
+    learning_rate: float,
+    ) -> Tuple[Any, Any, Dict[str, float]]:
     Xc_train, Xc_test, yc_train, yc_test = train_test_split(
         X_count,
         y_count,
         test_size=test_size,
         random_state=random_state,
     )
-    reg = RandomForestRegressor(
-        n_estimators=n_estimators,
-        max_depth=max_depth,
-        random_state=random_state,
-        n_jobs=-1,
-    )
+    algorithm = algorithm.lower()
+    if algorithm == "random_forest":
+        reg = RandomForestRegressor(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            random_state=random_state,
+            n_jobs=-1,
+        )
+    elif algorithm == "gradient_boosting":
+        gb_kwargs = {
+            "n_estimators": n_estimators,
+            "learning_rate": learning_rate,
+            "random_state": random_state,
+        }
+        if max_depth is not None:
+            gb_kwargs["max_depth"] = max_depth
+        reg = GradientBoostingRegressor(**gb_kwargs)
+    else:
+        raise ValueError(f"Unsupported algorithm: {algorithm}")
     reg.fit(Xc_train, yc_train)
     yc_pred = reg.predict(Xc_test)
     reg_diagnostics = regression_metrics(yc_test, yc_pred)
@@ -235,12 +263,22 @@ def train_models(
         test_size=test_size,
         random_state=random_state,
     )
-    clf = RandomForestClassifier(
-        n_estimators=n_estimators,
-        max_depth=max_depth,
-        random_state=random_state,
-        n_jobs=-1,
-    )
+    if algorithm == "random_forest":
+        clf = RandomForestClassifier(
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            random_state=random_state,
+            n_jobs=-1,
+        )
+    else:  # gradient_boosting
+        gb_kwargs = {
+            "n_estimators": n_estimators,
+            "learning_rate": learning_rate,
+            "random_state": random_state,
+        }
+        if max_depth is not None:
+            gb_kwargs["max_depth"] = max_depth
+        clf = GradientBoostingClassifier(**gb_kwargs)
     clf.fit(Xa_train, ya_train)
     ya_proba = clf.predict_proba(Xa_test)
     ya_prob = positive_class_probabilities(clf, ya_proba)
@@ -257,6 +295,7 @@ def train_models(
         "accept_accuracy": float(accuracy_score(ya_test, ya_pred)),
         "train_iterations": int(len(X_count)),
         "train_positions": int(len(X_accept)),
+        "algorithm": algorithm,
     }
     return reg, clf, metrics
 
@@ -281,6 +320,8 @@ def main() -> None:
         max_depth=args.max_depth,
         random_state=args.random_state,
         test_size=args.test_size,
+        algorithm=args.algorithm,
+        learning_rate=args.learning_rate,
     )
 
     bundle = {
@@ -295,6 +336,7 @@ def main() -> None:
         "classifier": clf_model,
         "metrics": metrics,
         "details_source": str(args.details_jsonl),
+        "algorithm": args.algorithm,
     }
 
     args.output_model.parent.mkdir(parents=True, exist_ok=True)
@@ -305,6 +347,7 @@ def main() -> None:
         print(
             f"  iterations={metrics['train_iterations']} positions={metrics['train_positions']}"
         )
+        print(f"  algorithm={args.algorithm}")
         count = metrics["count_regression"]
         print(
             "  Count regression: "

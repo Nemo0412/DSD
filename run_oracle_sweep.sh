@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 SCENARIOS=(
+  "gsm8k:experiments/results/dynamic_gamma_mix/configs/specpp_drafts400_seed123.yaml:/home/external/dsdSim/traces/gsm8k_trace_200prompts.jsonl"
   "cnndm:experiments/results/dynamic_gamma_mix/configs/specpp_drafts400_seed123.yaml:/home/external/dsdSim/traces/cnndm_trace_200prompts.jsonl"
   "humaneval:experiments/results/dynamic_gamma_mix/configs/specpp_drafts400_seed123.yaml:/home/external/dsdSim/traces/humaneval_trace_100prompts.jsonl"
 )
@@ -23,8 +24,9 @@ PY
     --config "$TMP_CFG" \
     --scenario-id "$SCENARIO" \
     --drafter-counts 800,1000,1200,1400 \
-    --rtt-multipliers 1.0,1.2,1.4,1.6 \
+    --rtt-multipliers 2,3,5,10,15 \
     --gammas 1,2,3,4,5,6,7,8 \
+    --max-conversations 300 \
     --seed 123 \
     --output-dir data/gamma_oracle > "$LOG_PATH" 2>&1
   rm -f "$TMP_CFG"

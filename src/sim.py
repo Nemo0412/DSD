@@ -278,6 +278,13 @@ class LatencyHeadGammaPolicy(GammaPolicy):
             self._set_output_weights(self._default_output_weights())
         self._out_b = output_bias
 
+        bundle = mlp_cfg.get("state")
+        state_path = mlp_cfg.get("state_path")
+        if state_path:
+            bundle = self._load_state_file(state_path)
+        if bundle:
+            self._apply_state_bundle(bundle)
+
         self._connection_history: Dict[Tuple[str, str], deque] = {}
         self._target_queue_history: Dict[str, deque] = {}
         self._target_workload_history: Dict[str, deque] = {}
@@ -445,6 +452,73 @@ class LatencyHeadGammaPolicy(GammaPolicy):
             return x / (1.0 + math.exp(-x))
         except OverflowError:
             return 0.0 if x < 0 else x
+
+    def _load_state_file(self, path_value: Any) -> Optional[Mapping[str, Any]]:
+        try:
+            state_path = Path(path_value)
+            with state_path.open("r", encoding="utf-8") as handle:
+                return json.load(handle)
+        except Exception as exc:
+            raise ValueError(f"Failed to load latency-head state from {path_value}: {exc}") from exc
+
+    def _apply_state_bundle(self, bundle: Mapping[str, Any]) -> None:
+        feature_order = list(bundle.get("feature_order") or [])
+        if feature_order and feature_order != self._feature_fields:
+            raise ValueError(
+                f"Latency head feature order mismatch: expected {self._feature_fields}, got {feature_order}"
+            )
+
+        self._proj_w = self._read_matrix(bundle, "proj", self._hidden_dim, self._feature_dim)
+        self._proj_b = self._read_vector(bundle, "proj", self._hidden_dim)
+        self._block1_w = self._read_matrix(bundle, "block1", self._hidden_dim, self._hidden_dim)
+        self._block1_b = self._read_vector(bundle, "block1", self._hidden_dim)
+        self._block2_w = self._read_matrix(bundle, "block2", self._hidden_dim, self._hidden_dim)
+        self._block2_b = self._read_vector(bundle, "block2", self._hidden_dim)
+        self._out_w = self._read_weight_vector(bundle, "output", self._hidden_dim)
+        self._out_b = float(self._read_bias(bundle, "output"))
+
+    @staticmethod
+    def _read_matrix(bundle: Mapping[str, Any], key: str, rows: int, cols: int) -> List[List[float]]:
+        entry = bundle.get(key) or {}
+        matrix = entry.get("weight")
+        if matrix is None:
+            raise ValueError(f"Latency head bundle missing {key}.weight")
+        if len(matrix) != rows:
+            raise ValueError(f"{key}.weight row mismatch: expected {rows}, got {len(matrix)}")
+        result: List[List[float]] = []
+        for row in matrix:
+            if len(row) != cols:
+                raise ValueError(f"{key}.weight column mismatch: expected {cols}, got {len(row)}")
+            result.append([float(v) for v in row])
+        return result
+
+    @staticmethod
+    def _read_vector(bundle: Mapping[str, Any], key: str, size: int) -> List[float]:
+        entry = bundle.get(key) or {}
+        bias = entry.get("bias")
+        if bias is None:
+            raise ValueError(f"Latency head bundle missing {key}.bias")
+        if len(bias) != size:
+            raise ValueError(f"{key}.bias length mismatch: expected {size}, got {len(bias)}")
+        return [float(v) for v in bias]
+
+    @staticmethod
+    def _read_weight_vector(bundle: Mapping[str, Any], key: str, size: int) -> List[float]:
+        entry = bundle.get(key) or {}
+        weight = entry.get("weight")
+        if weight is None:
+            raise ValueError(f"Latency head bundle missing {key}.weight")
+        if len(weight) != size:
+            raise ValueError(f"{key}.weight length mismatch: expected {size}, got {len(weight)}")
+        return [float(v) for v in weight]
+
+    @staticmethod
+    def _read_bias(bundle: Mapping[str, Any], key: str) -> float:
+        entry = bundle.get(key) or {}
+        bias = entry.get("bias")
+        if bias is None:
+            raise ValueError(f"Latency head bundle missing {key}.bias")
+        return float(bias)
 
     @staticmethod
     def _matvec(matrix: List[List[float]], vector: List[float], bias: Optional[List[float]] = None) -> List[float]:
@@ -3137,76 +3211,76 @@ class DraftServer:
                         ttft_breakdown=ttft_breakdown,
                         decode_breakdown=decode_breakdown,
                     )
+                conv_count = len(getattr(self.metrics, "conversations", []))
                 if self.cfg.verbose and self.cfg.max_conversations:
-                    conv_count = len(getattr(self.metrics, "conversations", []))
                     print(
                         f"[{self.env.now:.1f}ms] Draft {self.id}: conversation {conv_count}/{self.cfg.max_conversations}",
                         flush=True,
                     )
                     self._maybe_stop_after_conversation()
 
-                    avg_rtt = (
-                        sum(conversation_rtt_samples) / len(conversation_rtt_samples)
-                        if conversation_rtt_samples else 0.0
-                    )
-                    max_rtt = max(conversation_rtt_samples) if conversation_rtt_samples else 0.0
-                    avg_tpot = (
-                        sum(conversation_tpot_samples) / len(conversation_tpot_samples)
-                        if conversation_tpot_samples else 0.0
-                    )
-                    max_tpot = max(conversation_tpot_samples) if conversation_tpot_samples else 0.0
+                avg_rtt = (
+                    sum(conversation_rtt_samples) / len(conversation_rtt_samples)
+                    if conversation_rtt_samples else 0.0
+                )
+                max_rtt = max(conversation_rtt_samples) if conversation_rtt_samples else 0.0
+                avg_tpot = (
+                    sum(conversation_tpot_samples) / len(conversation_tpot_samples)
+                    if conversation_tpot_samples else 0.0
+                )
+                max_tpot = max(conversation_tpot_samples) if conversation_tpot_samples else 0.0
 
-                    if self._gamma_oracle_logger is not None:
-                        oracle_record = {
-                            "request_id": conversation_id,
-                            "draft_id": self.id,
-                            "target_id": target_id,
-                            "timestamp_ms": conversation_start,
-                            "mode": "fused" if conversation_fused else "distributed",
-                            "gamma": gamma_value,
-                            "context_tokens": prompt_length,
-                            "answer_tokens": answer_length,
-                            "features": oracle_features,
-                            "metrics": {
-                                "duration_ms": conversation_time,
-                                "ttft_ms": ttft_ms,
-                                "avg_rtt_ms": avg_rtt,
-                                "max_rtt_ms": max_rtt,
-                                "avg_tpot_ms": avg_tpot,
-                                "max_tpot_ms": max_tpot,
-                                "ttft_breakdown": ttft_breakdown,
-                                "decode_breakdown": decode_breakdown,
-                                "rtt_samples": conversation_rtt_samples,
-                                "tpot_samples": conversation_tpot_samples,
-                            },
-                        }
-                        try:
-                            self._gamma_oracle_logger.log(oracle_record)
-                        except Exception as exc:
-                            if self.cfg.debug:
-                                print(f"[WARN] Gamma oracle logging failed: {exc}", flush=True)
+                if self._gamma_oracle_logger is not None:
+                    oracle_record = {
+                        "request_id": conversation_id,
+                        "draft_id": self.id,
+                        "target_id": target_id,
+                        "timestamp_ms": conversation_start,
+                        "mode": "fused" if conversation_fused else "distributed",
+                        "gamma": gamma_value,
+                        "context_tokens": prompt_length,
+                        "answer_tokens": answer_length,
+                        "features": oracle_features,
+                        "metrics": {
+                            "duration_ms": conversation_time,
+                            "ttft_ms": ttft_ms,
+                            "avg_rtt_ms": avg_rtt,
+                            "max_rtt_ms": max_rtt,
+                            "avg_tpot_ms": avg_tpot,
+                            "max_tpot_ms": max_tpot,
+                            "ttft_breakdown": ttft_breakdown,
+                            "decode_breakdown": decode_breakdown,
+                            "rtt_samples": conversation_rtt_samples,
+                            "tpot_samples": conversation_tpot_samples,
+                        },
+                    }
+                    try:
+                        self._gamma_oracle_logger.log(oracle_record)
+                    except Exception as exc:
+                        if self.cfg.debug:
+                            print(f"[WARN] Gamma oracle logging failed: {exc}", flush=True)
 
-                    self._gamma_policy.update_gamma(
-                        self.id,
-                        GammaConversationStats(
-                            acceptance_ratio=conversation_acceptance,
-                            tokens_generated=tokens_generated_in_conversation,
-                            tokens_accepted=tokens_accepted_in_conversation,
-                            avg_rtt_ms=avg_rtt,
-                            max_rtt_ms=max_rtt,
-                            avg_tpot_ms=avg_tpot,
-                            max_tpot_ms=max_tpot,
-                            gamma_used=gamma_value,
-                            target_id=target_id,
-                            queue_utilization=queue_util_snapshot,
-                            target_workload_util=target_workload_snapshot,
-                            pending_tokens=pending_tokens_snapshot,
-                            drafter_capability=drafter_capability,
-                            drafter_tier=drafter_tier,
-                            context_length=prompt_length,
-                            acceptance_estimate=acceptance_estimate_snapshot,
-                        ),
-                    )
+                self._gamma_policy.update_gamma(
+                    self.id,
+                    GammaConversationStats(
+                        acceptance_ratio=conversation_acceptance,
+                        tokens_generated=tokens_generated_in_conversation,
+                        tokens_accepted=tokens_accepted_in_conversation,
+                        avg_rtt_ms=avg_rtt,
+                        max_rtt_ms=max_rtt,
+                        avg_tpot_ms=avg_tpot,
+                        max_tpot_ms=max_tpot,
+                        gamma_used=gamma_value,
+                        target_id=target_id,
+                        queue_utilization=queue_util_snapshot,
+                        target_workload_util=target_workload_snapshot,
+                        pending_tokens=pending_tokens_snapshot,
+                        drafter_capability=drafter_capability,
+                        drafter_tier=drafter_tier,
+                        context_length=prompt_length,
+                        acceptance_estimate=acceptance_estimate_snapshot,
+                    ),
+                )
 
             # Schedule next arrival for both think_enabled and workload-driven modes
             if not self._trace_mode:
