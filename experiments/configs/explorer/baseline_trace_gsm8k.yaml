@@ -23,9 +23,13 @@ speculation:
       min_beam_width: 1
   acceptance:
     disable_model: false
-    model: src/acceptance/fixed_acceptance.joblib
+    model: acceptance/Llama-2-7b-hf_vs_Llama-2-70b-hf-gbdt.joblib
     use_classifier: true
     default_rate: 0.8
+    context_bucket: 32
+    depth_bucket: 8
+    pending_bucket: 64
+    queue_bucket: 32
 execution_mode: blocking
 gamma: 4
 trace_path: traces/gsm8k_trace_1s.jsonl
@@ -99,8 +103,8 @@ auto_topology:
           model_name: meta-llama/Llama-2-70b-hf
           device: A100
           network_device: A100_PAIRWISE_NVLINK
-          tensor_parallel: 1
-          pipeline_parallel: 1
+          tensor_parallel: 2
+          pipeline_parallel: 2
           scheduler: sarathi
           chunk_size: 512
       - name: codellama_a100
@@ -114,8 +118,8 @@ auto_topology:
           model_name: codellama/CodeLlama-34b-Instruct-hf
           device: A100
           network_device: A100_PAIRWISE_NVLINK
-          tensor_parallel: 1
-          pipeline_parallel: 1
+          tensor_parallel: 2
+          pipeline_parallel: 2
           scheduler: sarathi
           chunk_size: 512
       - name: qwen_h100
@@ -129,8 +133,8 @@ auto_topology:
           model_name: Qwen/Qwen-72B
           device: H100
           network_device: H100_DGX
-          tensor_parallel: 1
-          pipeline_parallel: 1
+          tensor_parallel: 2
+          pipeline_parallel: 2
           scheduler: sarathi
           chunk_size: 512
       - name: llama3_a100
@@ -144,8 +148,8 @@ auto_topology:
           model_name: meta-llama/Meta-Llama-3-70B
           device: A100
           network_device: A100_PAIRWISE_NVLINK
-          tensor_parallel: 1
-          pipeline_parallel: 1
+          tensor_parallel: 2
+          pipeline_parallel: 2
           scheduler: sarathi
           chunk_size: 512
     drafts:
@@ -320,6 +324,36 @@ auto_topology:
         llama3_a100:
         - 6.0
         - 10.2
+        llama_a40_fast:
+        - 10.0
+        - 30.0
+        llama_a40_slow:
+        - 35.0
+        - 65.0
+        qwen_a40_fast:
+        - 40.0
+        - 70.0
+        qwen_a40_slow:
+        - 60.0
+        - 95.0
+        codellama_a40_fast:
+        - 70.0
+        - 110.0
+        codellama_a40_slow:
+        - 90.0
+        - 130.0
+        llama3_8b_a40_fast:
+        - 100.0
+        - 140.0
+        llama3_8b_a40_slow:
+        - 120.0
+        - 160.0
+        llama3_1b_a40_fast:
+        - 140.0
+        - 170.0
+        llama3_1b_a40_slow:
+        - 150.0
+        - 180.0
       link_jitter_pct: 0.12
       drop_rate:
         llama_a40_slow: 0.006

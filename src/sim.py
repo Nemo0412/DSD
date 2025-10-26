@@ -2885,6 +2885,7 @@ class DraftServer:
                 "drafter_tier": drafter_tier,
                 "acceptance_estimate": acceptance_estimate,
                 "acceptance_predicted": predicted_acceptance,
+                "acceptance_probabilities": list(acceptance_probs),
                 "target_batch_size": target_batch_size,
                 "context_length": prompt_length,
                 "target_queue_pending_tokens": pending_tokens,
@@ -4720,7 +4721,7 @@ def _build_gamma_policy(cfg: Config) -> GammaPolicy:
         return SpecPPGammaPolicy(cfg.gamma, policy_cfg)
     if policy_type == "acceptance_backoff":
         return AcceptanceBackoffGammaPolicy(cfg.gamma, policy_cfg)
-    if policy_type == "latency_head":
+    if policy_type in {"latency_head", "awc"}:
         return LatencyHeadGammaPolicy(cfg.gamma, policy_cfg)
     return ConstantGammaPolicy(cfg.gamma)
 

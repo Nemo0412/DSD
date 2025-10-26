@@ -52,14 +52,18 @@ POLICY_PRESETS: Dict[str, Dict[str, Optional[dict]]] = {
             "high_acceptance": 0.6,
         },
     },
-    "specpp": {
+    "awc": {
         "gamma": 4,
         "gamma_policy": {
-            "type": "specpp",
-            "min_gamma": 2,
+            "type": "awc",
+            "min_gamma": 1,
             "max_gamma": 8,
-            "stop_threshold": 0.7,
-            "fallback_gamma": 4,
+            "smoothing_alpha": 0.4,
+            "history_window": 3,
+            "mlp": {
+                "hidden_dim": 32,
+                "state_path": str(REPO_ROOT / "models" / "gamma_head.json"),
+            },
         },
     },
 }
@@ -67,13 +71,13 @@ POLICY_PRESETS: Dict[str, Dict[str, Optional[dict]]] = {
 DISPLAY_NAMES = {
     "gamma4_static": "Static γ=4",
     "acceptance_backoff": "Simple",
-    "specpp": "Spec++",
+    "awc": "AWC",
 }
 
 LINE_STYLES = {
     "gamma4_static": {"color": "#1f77b4", "marker": "o"},
     "acceptance_backoff": {"color": "#ff7f0e", "marker": "s"},
-    "specpp": {"color": "#2ca02c", "marker": "^"},
+    "awc": {"color": "#2ca02c", "marker": "^"},
 }
 
 
@@ -195,7 +199,7 @@ def _write_config(cfg: Dict, path: Path) -> None:
 def _run_sim_subprocess(config_path: Path) -> Dict[str, float]:
     cmd = [sys.executable, str(SIM_PATH), "--config", str(config_path)]
     env = dict(os.environ)
-    extra = [str(VIDUR_REPO_PATH)]
+    extra = [str(REPO_ROOT), str(VIDUR_REPO_PATH)]
     existing = env.get("PYTHONPATH")
     if existing:
         env["PYTHONPATH"] = os.pathsep.join(extra + [existing])
