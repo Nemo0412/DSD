@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 SCENARIOS=(
-  "gsm8k:experiments/results/dynamic_gamma_mix/configs/specpp_drafts400_seed123.yaml:/home/external/dsdSim/traces/gsm8k_trace_1s.jsonl"
-  "cnndm:experiments/results/dynamic_gamma_mix/configs/specpp_drafts400_seed123.yaml:/home/external/dsdSim/traces/cnndm_trace_1s.jsonl"
-  "humaneval:experiments/results/dynamic_gamma_mix/configs/specpp_drafts400_seed123.yaml:/home/external/dsdSim/traces/humaneval_trace_1s.jsonl"
+  "cnndm:experiments/results/dynamic_gamma_mix/configs/specpp_drafts400_seed123.yaml:/home/external/dsdSim/traces/cnndm_trace_200prompts.jsonl"
+  "humaneval:experiments/results/dynamic_gamma_mix/configs/specpp_drafts400_seed123.yaml:/home/external/dsdSim/traces/humaneval_trace_100prompts.jsonl"
 )
 LOG_DIR=data/gamma_oracle/logs
 mkdir -p "$LOG_DIR"

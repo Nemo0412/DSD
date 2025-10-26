@@ -297,6 +297,7 @@ def main() -> None:
                             _apply_drafter_count(cfg, drafter_count)
                         if rtt_mult is not None:
                             _apply_rtt_multiplier(cfg, rtt_mult)
+                        cfg["max_conversations"] = int(args.max_conversations)
                         mode = "fused" if gamma == 1 else args.distributed_mode
                         spec_cfg = cfg.setdefault("speculation", {})
                         spec_cfg["execution_mode"] = mode
