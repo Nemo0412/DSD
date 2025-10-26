@@ -63,12 +63,6 @@ def parse_args() -> argparse.Namespace:
         help="Optional path to save the raw PyTorch checkpoint.",
     )
     parser.add_argument(
-        "--default-gamma",
-        type=float,
-        default=4.0,
-        help="Baseline gamma added to the MLP output delta (default 4.0).",
-    )
-    parser.add_argument(
         "--min-gamma",
         type=float,
         default=1.0,
@@ -281,12 +275,10 @@ class ScenarioState:
         *,
         history_window: int,
         acceptance_alpha: float,
-        default_gamma: float,
         max_gamma: float,
     ) -> None:
         self.history_window = history_window
         self.acceptance_alpha = max(0.0, min(1.0, acceptance_alpha))
-        self.default_gamma = default_gamma
         self.max_gamma = max_gamma
         self.target_queue_history: DefaultDict[str, deque] = defaultdict(lambda: deque(maxlen=history_window))
         self.connection_history: DefaultDict[Tuple[str, str], deque] = defaultdict(lambda: deque(maxlen=history_window))
@@ -315,15 +307,18 @@ class ScenarioState:
         queue_avg = _mean(queue_hist) if queue_hist else queue_util
         queue_trend = queue_util - queue_avg if queue_hist else 0.0
 
+        conn_key = (draft_id, target_id)
         pending_tokens = float(features.get("pending_tokens", 0.0))
         workload_util = float(features.get("target_workload_util", 0.0))
         if workload_util <= 0.0:
             batch = float(features.get("target_batch_size", 0.0))
-            denom = batch * max(1.0, self.default_gamma) if batch > 0 else max(1.0, self.default_gamma)
+            denom_gamma = self.last_gamma.get(conn_key)
+            if denom_gamma is None:
+                denom_gamma = float(record.get("gamma", self.max_gamma))
+            denom = batch * max(1.0, denom_gamma) if batch > 0 else max(1.0, denom_gamma)
             workload_util = pending_tokens / denom if denom > 0 else 0.0
         workload_util = max(0.0, min(2.0, workload_util))
 
-        conn_key = (draft_id, target_id)
         conn_hist = self.connection_history.get(conn_key)
         rtt_avg = _mean_field(conn_hist, "avg_rtt")
         rtt_delta = _delta_field(conn_hist, "avg_rtt")
@@ -332,7 +327,9 @@ class ScenarioState:
 
         capability_norm = float(features.get("drafter_capability", 0.0)) / max(1e-6, capability_ref)
         acceptance_recent = self.recent_acceptance.get(target_id, float(features.get("acceptance_estimate", 0.0)))
-        last_gamma = self.last_gamma.get(conn_key, self.default_gamma)
+        last_gamma = self.last_gamma.get(conn_key)
+        if last_gamma is None:
+            last_gamma = float(record.get("gamma", self.max_gamma))
 
         row = [
             queue_util,
@@ -389,7 +386,6 @@ def build_feature_matrix(
     context_ref: float,
     rtt_ref_ms: float,
     tpot_ref_ms: float,
-    default_gamma: float,
     max_gamma: float,
     history_window: int,
     acceptance_alpha: float,
@@ -410,7 +406,6 @@ def build_feature_matrix(
             state = ScenarioState(
                 history_window=history_window,
                 acceptance_alpha=acceptance_alpha,
-                default_gamma=default_gamma,
                 max_gamma=max_gamma,
             )
             for request_id in order:
@@ -538,7 +533,6 @@ def main() -> None:
         context_ref=args.context_ref,
         rtt_ref_ms=args.rtt_ref_ms,
         tpot_ref_ms=args.tpot_ref_ms,
-        default_gamma=args.default_gamma,
         max_gamma=args.max_gamma,
         history_window=args.history_window,
         acceptance_alpha=args.acceptance_alpha,
@@ -563,7 +557,6 @@ def main() -> None:
         args.output_json,
         metadata={
             "datasets": [str(p) for p in args.datasets],
-            "default_gamma": args.default_gamma,
             "min_gamma": args.min_gamma,
             "max_gamma": args.max_gamma,
             "mae": metrics["mae"],

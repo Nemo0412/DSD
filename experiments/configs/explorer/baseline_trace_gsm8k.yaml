@@ -55,6 +55,8 @@ think_time:
   mean_ms: 1700
   cv: 0.6
   min_ms: 220
+network_config:
+  base_rtt_ms: 50.0
 performance_model:
   type: vidur
   vidur:

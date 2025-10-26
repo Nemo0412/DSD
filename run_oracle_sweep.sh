@@ -24,7 +24,7 @@ PY
     --config "$TMP_CFG" \
     --scenario-id "$SCENARIO" \
     --drafter-counts 800,1000,1200,1400 \
-    --rtt-multipliers 2,3,5,10,15 \
+    --rtt-multipliers 1.0,1.2,1.5,2.0,5.0,8.0,10.0,15.0 \
     --gammas 1,2,3,4,5,6,7,8 \
     --max-conversations 300 \
     --seed 123 \

@@ -307,8 +307,7 @@ class LatencyHeadGammaPolicy(GammaPolicy):
 
         key = (draft_id, context.target_id)
         features = self._compose_features(key, context)
-        delta = self._forward_mlp(features)
-        gamma_hat = self._default + delta
+        gamma_hat = self._forward_mlp(features)
         gamma_hat = max(self._min, min(self._max, gamma_hat))
         gamma_hat = self._smooth_gamma(key, gamma_hat)
         quantized = self._quantize(gamma_hat)

@@ -62,7 +62,7 @@ POLICY_PRESETS: Dict[str, Dict[str, Optional[dict]]] = {
             "history_window": 3,
             "mlp": {
                 "hidden_dim": 32,
-                "state_path": str(REPO_ROOT / "models" / "gamma_head.json"),
+                "state_path": str(REPO_ROOT / "models" / "gamma_head_lowrtt.json"),
             },
         },
     },

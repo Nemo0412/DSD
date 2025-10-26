@@ -1006,7 +1006,7 @@ def plan(pools, candidates, metrics):
 
 ##### Model Architecture & Loss
 
-- **Residual MLP head.** The Adaptive Window Controller is a single residual block: `y = x + Linear(SiLU(Linear(x)))`, followed by a small linear head. Inference flow is `input -> proj -> block -> residual add -> output`, matching the diagram (“Linear → (Linear + activation + Linear) → Skip → Linear”). Default hidden_dim = 32, activation = SiLU.
+- **Residual MLP head.** The Adaptive Window Controller is a single residual block: `y = x + Linear(SiLU(Linear(x)))`, followed by a small linear head. Inference flow is `input -> proj -> block -> residual add -> output`, matching the diagram (“Linear → (Linear + activation + Linear) → Skip → Linear”). Default hidden_dim = 32, activation = SiLU. The head predicts the absolute next gamma directly (no baseline offset), so it can swing across the entire `[min,max]` range when telemetry indicates trouble.
 - **Output.** Scalar prediction `gamma_hat` is clamped to `[gamma_min, gamma_max]`, smoothed (`α≈0.4`) to damp oscillations, then quantised to the nearest allowed gamma (with hysteresis keeping fused mode sticky for a few steps).
 - **Loss.** We train with L1 (absolute error) so the head emphasises per-request accuracy without squaring occasional oracle noise. The trainer also reports MAE/RMSE for visibility.
 - **Serving.** `LatencyHeadGammaPolicy` now accepts a `mlp.state_path` (or inline `state`) consisting of the trained projection/block/output weights. The simulator validates feature ordering and seamlessly swaps the runtime matrices when the bundle is provided.
