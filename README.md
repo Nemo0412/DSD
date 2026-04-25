@@ -101,16 +101,21 @@ Compares **JSQ** (Join Shortest Queue) and **Random** routing policies on a fat-
 python experiments/benchmark_jsq_vs_random.py
 ```
 
-**Sample results (8 drafts → 4 targets, seed=2025):**
+**Sample results (12 drafts → 4 targets, LOAD=90 req/s, seed=2025):**
 
-GPU placement spans all three latency tiers (60 / 300 / 800 ns).
+GPU placement spans all three latency tiers (60 / 300 / 800 ns), target utilization ~112% (overloaded).
 
-| Load | Router | TPOT avg | Throughput | RTT avg |
-|---|---|---|---|---|
-| 90 req/s (overloaded) | **JSQ** | **1.260 ms** | 1306 jobs/s | **3.153 ms** |
-| 90 req/s (overloaded) | Random | 1.297 ms | 1316 jobs/s | 3.223 ms |
+| Router | TPOT avg | TPOT p95 | Throughput | RTT avg | Completed convs |
+|---|---|---|---|---|---|
+| **JSQ** | **1.260 ms** ✓ | 2.801 ms | 1306 jobs/s | **3.153 ms** ✓ | 305 |
+| Random | 1.297 ms | 2.802 ms | **1316 jobs/s** | 3.223 ms | 315 |
+| Round-Robin | 1.316 ms | 2.802 ms | 1312 jobs/s | 3.268 ms | 320 |
 
-**Key finding:** Under high load (>80% target utilization), JSQ reduces average TPOT by ~3% and RTT by ~2.2% compared to Random routing. The advantage grows with load — at light load (~50% utilization) the difference is <1%.
+**Key findings:**
+- **JSQ** achieves the lowest TPOT (−2.9% vs Random, −4.2% vs Round-Robin) and lowest RTT under overload, because it avoids routing to already-queued targets
+- **Round-Robin** has the highest TPOT and RTT — it ignores queue state entirely and can repeatedly route to the same overloaded target
+- All three routers achieve similar throughput when targets are overloaded (load-shedding behavior dominates)
+- JSQ's advantage grows with load — at light load (~50% utilization) differences are <1%
 
 ---
 

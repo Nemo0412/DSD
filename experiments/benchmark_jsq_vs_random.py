@@ -33,7 +33,7 @@ N_DRAFTS      = 12        # number of draft servers
 GAMMA         = 3         # speculative tokens per round
 ACCEPTANCE    = 0.70      # fixed token acceptance rate
 SEED          = 2025      # master seed for GPU placement
-ROUTERS       = ["jsq", "random"]
+ROUTERS       = ["jsq", "random", "round_robin"]
 
 # Simulated GPU compute: realistic numbers for a 70B target on A100
 # At these values: verify(3 tokens)≈1.5ms → ~50ms/conv → ~62% util per target
