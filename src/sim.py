@@ -3312,7 +3312,7 @@ class DraftServer:
 @dataclass
 class PhaseSettings:
     pool: str = "default"
-    queue_policy: str = "priority"  # "fifo" or "priority"
+    queue_policy: str = "priority"  # "fifo" | "priority" | "lab"
     max_batch_requests: int = 32
     max_batch_tokens: int = 0
     max_wait_ms: float = 6.0
@@ -3326,6 +3326,10 @@ class PhaseSettings:
     dynamic_policy: Dict[str, Any] = field(default_factory=dict)
     max_queue_depth: int = 0
     backpressure_wait_ms: float = 0.1
+    # Length-Aware Batching: group requests into context-length buckets so that
+    # jobs with similar sequence lengths are co-scheduled, reducing padding waste.
+    # Set to 0 to disable (default). Typical value: 64 or 128 tokens.
+    lab_bucket_size: int = 0
 
 
 @dataclass(order=True)
@@ -3529,6 +3533,14 @@ class PhaseScheduler:
             )
         if self.settings.queue_policy == "fifo":
             sort_key: Tuple[float, int] = (float(self._seq),)
+        elif self.settings.queue_policy == "lab":
+            # Length-Aware Batching: primary = priority class, secondary = context
+            # length bucket so jobs with similar sequence lengths are co-scheduled,
+            # tertiary = arrival order for fairness within a bucket.
+            bucket_size = max(1, self.settings.lab_bucket_size or 64)
+            ctx = int(job.context_len or job.token_count or 0)
+            bucket = ctx // bucket_size
+            sort_key = (float(job.priority), float(bucket), float(self._seq))
         else:
             sort_key = (float(job.priority), self._seq)
         item = QueueItem(sort_key, job)
@@ -3932,6 +3944,7 @@ class Scheduler:
         settings.dynamic_policy = dict(phase_cfg.get("dynamic_policy", settings.dynamic_policy) or {})
         settings.max_queue_depth = int(phase_cfg.get("max_queue_depth", settings.max_queue_depth))
         settings.backpressure_wait_ms = float(phase_cfg.get("backpressure_wait_ms", settings.backpressure_wait_ms))
+        settings.lab_bucket_size = int(phase_cfg.get("lab_bucket_size", settings.lab_bucket_size))
 
         mode = str(phase_cfg.get("mode", settings.mode)).lower()
         settings.mode = mode

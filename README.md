@@ -79,7 +79,36 @@ connectivity:
 
 ---
 
-### Bug Fixes
+### LAB (Length-Aware Batching) — `src/sim.py`
+
+Added a new `queue_policy: "lab"` to the `PhaseScheduler`. LAB groups requests by context-length bucket so that jobs with similar sequence lengths are co-scheduled into the same batch, reducing padding waste.
+
+**How it works:**
+- Sort key becomes `(priority, context_len // bucket_size, arrival_seq)` instead of `(priority, arrival_seq)`
+- The `PriorityStore` naturally co-schedules same-bucket jobs without any extra collection logic
+- Configurable `lab_bucket_size` (tokens); defaults to 64 when policy is `"lab"`
+
+**Config:**
+```yaml
+scheduler:
+  decode:
+    queue_policy: lab
+    lab_bucket_size: 64   # group requests within ±64 token context windows
+```
+
+**Benchmark** (`experiments/benchmark_batching.py`) — routing fixed at JSQ, 90 req/s, answer length 30–600 tokens (wide distribution to stress LAB):
+
+| Policy | TPOT avg | TTFT avg | Throughput | Completed convs |
+|---|---|---|---|---|
+| FIFO | 1.237 ms | 15.49 ms | 1993 jobs/s | 298 |
+| **LAB-64** | **1.230 ms** ✓ | **14.95 ms** ✓ | 1995 jobs/s | 307 |
+| LAB-128 | 1.240 ms | 15.31 ms | **2025 jobs/s** ✓ | 309 |
+
+**Key findings:**
+- **LAB-64** reduces TPOT by 0.5% and **TTFT by 3.5%** vs FIFO — short-context requests finish faster, giving users earlier first tokens
+- **LAB-128** (coarser buckets) maximises throughput (+1.6%) by enabling larger, more uniform batches
+- Fine-grained bucketing (64) favours latency; coarse bucketing (128) favours throughput
+- In real GPU serving, benefits would be larger since actual computation scales with the *maximum* sequence length per batch (not the average used here)
 
 **`src/performance/factory.py` — Lazy VIDUR import**
 
@@ -137,6 +166,7 @@ dsdSim/
 │   └── trace/                        # Trace loading (JSONL)
 ├── experiments/
 │   ├── benchmark_jsq_vs_random.py    # JSQ vs Random on fat-tree (NEW)
+│   ├── benchmark_batching.py         # FIFO vs LAB batching comparison (NEW)
 │   └── configs/
 │       └── fat_tree_test.yaml        # Minimal smoke-test config (NEW)
 ├── docs/
