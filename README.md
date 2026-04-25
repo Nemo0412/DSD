@@ -1,4 +1,167 @@
-# Distributed and Fused Speculative Decoding on AWS Trainium
+# dsdSim — Distributed Speculative Decoding Simulator
+
+A discrete-event simulator for **distributed speculative decoding (DSD)** in datacenter environments, built on [SimPy](https://simpy.readthedocs.io/). Models draft–target LLM inference pipelines with realistic network topologies, scheduling policies, and acceptance rate prediction.
+
+> **Terminology:** This simulator uses **draft** and **target** (not "edge" and "cloud") to reflect a pure-datacenter deployment where both models colocate in the same cluster.
+
+---
+
+## What It Simulates
+
+- **Speculative decoding** pipeline: draft servers propose token chunks; target servers verify and accept/reject
+- **Network-aware routing**: latency between draft and target servers based on physical topology
+- **Scheduling policies**: JSQ, Random, Round-Robin, JSQ(d), Weighted JSQ, JIQ, and more
+- **Acceptance modeling**: ML regressors (`.joblib`) or fixed acceptance rates
+- **Performance modeling**: per-token compute latency via default provider or VIDUR integration
+
+---
+
+## Recent Changes
+
+### Fat-tree Network Topology (`src/network/`)
+
+Added a three-level fat-tree network model reflecting realistic datacenter GPU cluster topology.
+
+**Hierarchy:**
+```
+Root switch
+  └─ Pod switch  ×  pods_per_root
+       └─ Node   ×  nodes_per_pod
+            └─ GPU  ×  gpus_per_node  (connected via NVLink)
+```
+
+**One-way latency rules:**
+
+| Path | Latency |
+|---|---|
+| Same node (NVLink) | 60 ns |
+| Same pod, different node | 2 × 150 = 300 ns |
+| Different pod | 2 × 150 + 2 × 250 = 800 ns |
+
+**Configuration** (`src/network/fat_tree_config.json`):
+```json
+{
+  "pods_per_root": 4,
+  "nodes_per_pod": 4,
+  "gpus_per_node": 4,
+  "latency": {
+    "nvlink_ns": 60,
+    "node_to_pod_ns": 150,
+    "pod_to_root_ns": 250
+  }
+}
+```
+All parameters (topology size and per-layer latency) are editable in this JSON file without touching code.
+
+**GPU index assignment:** each device is assigned a global GPU index (0-based, row-major across pod → node → GPU). Given two GPU indices, the simulator computes the correct one-way latency automatically.
+
+**Usage in YAML config:**
+```yaml
+connectivity:
+  network_model:
+    type: fat_tree
+    # optional: override any parameter inline
+    # gpus_per_node: 8
+    # latency:
+    #   nvlink_ns: 60
+    # optional: explicit GPU placement for benchmarks
+    # draft_gpu_indices: [0, 4, 16, 20]
+    # target_gpu_indices: [8, 24, 32, 48]
+```
+
+**New files:**
+- `src/network/fat_tree.py` — `FatTreeTopology` class with `latency_ns(gpu_i, gpu_j)` and `latency_ms(gpu_i, gpu_j)`
+- `src/network/fat_tree_config.json` — editable topology config
+
+**Modified files:**
+- `src/network/topology.py` — added `fat_tree` type dispatch (no NetworkX dependency)
+- `src/network/__init__.py` — exports `FatTreeTopology`
+
+---
+
+### Bug Fixes
+
+**`src/performance/factory.py` — Lazy VIDUR import**
+
+The VIDUR provider was imported unconditionally at module load time, causing a `FileNotFoundError` even when `performance_model.type: default` was configured. Fixed with lazy import: VIDUR is only loaded when explicitly requested.
+
+**`src/sim.py` — Performance metadata hoisting**
+
+`prefill_latency_per_token` and `decode_latency_per_token` specified in a tier's `metadata` block (or directly on the tier) are now hoisted to the top level of the device entry dict, making them visible to `DefaultPerformanceProvider`.
+
+---
+
+### JSQ vs Random Benchmark (`experiments/benchmark_jsq_vs_random.py`)
+
+Compares **JSQ** (Join Shortest Queue) and **Random** routing policies on a fat-tree datacenter topology with randomly distributed draft and target GPUs.
+
+**Run:**
+```bash
+# From anywhere in the repo
+python experiments/benchmark_jsq_vs_random.py
+```
+
+**Sample results (8 drafts → 4 targets, seed=2025):**
+
+GPU placement spans all three latency tiers (60 / 300 / 800 ns).
+
+| Load | Router | TPOT avg | Throughput | RTT avg |
+|---|---|---|---|---|
+| 90 req/s (overloaded) | **JSQ** | **1.260 ms** | 1306 jobs/s | **3.153 ms** |
+| 90 req/s (overloaded) | Random | 1.297 ms | 1316 jobs/s | 3.223 ms |
+
+**Key finding:** Under high load (>80% target utilization), JSQ reduces average TPOT by ~3% and RTT by ~2.2% compared to Random routing. The advantage grows with load — at light load (~50% utilization) the difference is <1%.
+
+---
+
+## Repository Structure
+
+```
+dsdSim/
+├── src/
+│   ├── sim.py                        # Main simulator (SimPy discrete-event)
+│   ├── network/
+│   │   ├── fat_tree.py               # Fat-tree topology (NEW)
+│   │   ├── fat_tree_config.json      # Editable topology parameters (NEW)
+│   │   ├── topology.py               # Latency lookup (clos, complete, fat_tree)
+│   │   └── fabric.py                 # SimPy link fabric (bandwidth, jitter, queuing)
+│   ├── performance/
+│   │   ├── factory.py                # Provider factory (lazy VIDUR import)
+│   │   └── default_provider.py       # Per-token latency fallback
+│   ├── acceptance/                   # ML acceptance regressors (.joblib)
+│   └── trace/                        # Trace loading (JSONL)
+├── experiments/
+│   ├── benchmark_jsq_vs_random.py    # JSQ vs Random on fat-tree (NEW)
+│   └── configs/
+│       └── fat_tree_test.yaml        # Minimal smoke-test config (NEW)
+├── docs/
+│   └── DESIGN.md                     # Full design document
+└── requirements.txt
+```
+
+---
+
+## Quick Start
+
+```bash
+# Install dependencies
+pip install simpy pyyaml networkx
+
+# Run smoke test (fat-tree + JSQ, 300ms sim)
+cd src
+python sim.py --config ../experiments/configs/fat_tree_test.yaml
+
+# Run JSQ vs Random benchmark
+python ../experiments/benchmark_jsq_vs_random.py
+```
+
+---
+
+## Original AWS Trainium Implementation
+
+The `aws-trn/` directory contains the original gRPC-based distributed speculative decoding implementation for AWS Trainium (trn1) instances using LLaMA 3.2-1B (draft) and LLaMA 3.1-8B (target). See `aws-trn/CLAUDE.md` for details.
+
+
 
 This repository supports two architectures for **speculative decoding** on AWS Trainium, using **Meta LLaMA 3.2-1B** (draft) and **LLaMA 3.1-8B** (target) models:
 

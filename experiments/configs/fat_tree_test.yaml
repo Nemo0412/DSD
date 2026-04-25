@@ -1,0 +1,94 @@
+# Minimal smoke-test: fat-tree network + JSQ router
+# 2 targets (GPU 4,5 → node 1, pod 0) + 4 drafts (GPU 0..3 → node 0, pod 0)
+# GPU layout with default fat_tree_config.json (4 pods × 4 nodes × 4 GPUs):
+#   Drafts 0-3: GPU 0-3 → same node 0, pod 0  (NVLink 60 ns to each other)
+#   Targets:    GPU 4-5 → node 1, pod 0        (same pod  300 ns from drafts)
+
+sim_time_ms: 300
+seed: 42
+verbose: true
+debug: false
+
+speculation:
+  framework: vanilla
+  execution_mode: distributed
+  acceptance:
+    disable_model: true
+    default_rate: 0.7
+
+gamma: 3
+execution_mode: blocking
+router: jsq
+router_params: {}
+global_router: disabled
+
+performance_model:
+  type: default
+
+network:
+  enabled: true
+
+scheduler:
+  type: baseline
+  pools:
+    all_targets:
+      clusters:
+        - fat_tree_cluster
+  prefill:
+    pool: all_targets
+    queue_policy: fcfs
+    max_batch_requests: 4
+    max_wait_ms: 1.0
+    delayed_batch_ms: 0.5
+    max_queue_depth: 16
+    backpressure_wait_ms: 0.1
+  decode:
+    pool: all_targets
+    queue_policy: fcfs
+    max_batch_requests: 4
+    max_wait_ms: 1.0
+    delayed_batch_ms: 0.5
+    max_queue_depth: 16
+    backpressure_wait_ms: 0.1
+
+workload:
+  arrival: poisson
+  rate_rps: 5.0
+
+auto_topology:
+  clusters:
+    - name: fat_tree_cluster
+      router: jsq
+      router_params: {}
+      targets:
+        count: 2
+        tiers:
+          - name: target_tier
+            count: 2
+            model: llama-70b
+            gpu: A100
+            batch_window_ms: 0.5
+            batch_size: 4
+      drafts:
+        count: 4
+        draft_bucket_labels:
+          - draft_label
+        count_by_label:
+          draft_label: 4
+        metadata_by_label:
+          draft_label:
+            hardware: A40
+            model_name: llama-7b
+      connectivity:
+        fanout_per_draft: 2
+        network_model:
+          type: fat_tree
+          # Uses src/network/fat_tree_config.json by default.
+          # Override any parameter inline:
+          # gpus_per_node: 4
+          # nodes_per_pod: 4
+          # pods_per_root: 4
+          # latency:
+          #   nvlink_ns: 60
+          #   node_to_pod_ns: 150
+          #   pod_to_root_ns: 250

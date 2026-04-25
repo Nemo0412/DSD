@@ -4366,6 +4366,15 @@ def _expand_auto_topology(raw: Dict[str, Any]) -> Dict[str, Any]:
                         entry["fused_draft_profile"] = fused_profile
                 if "metadata" in tier:
                     entry["metadata"] = dict(tier["metadata"])
+                    # Hoist performance keys so DefaultPerformanceProvider finds them
+                    # at the top level of the device dict.
+                    for _pk in ("prefill_latency_per_token", "decode_latency_per_token"):
+                        if _pk in tier["metadata"]:
+                            entry[_pk] = float(tier["metadata"][_pk])
+                # Also allow performance keys directly on the tier spec.
+                for _pk in ("prefill_latency_per_token", "decode_latency_per_token"):
+                    if _pk in tier and _pk not in entry:
+                        entry[_pk] = float(tier[_pk])
                 cluster_devices.append(entry)
                 target_entries.append(entry)
                 tier_of[tid] = tier_name

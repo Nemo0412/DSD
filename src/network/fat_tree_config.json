@@ -1,0 +1,27 @@
+{
+  "_comment": "Fat-tree network topology configuration for DSD simulator.",
+  "_layout": [
+    "GPU global index (0-based, row-major):",
+    "  gpu_index = pod_id * nodes_per_pod * gpus_per_node",
+    "            + node_in_pod * gpus_per_node",
+    "            + gpu_in_node",
+    "Total GPUs = pods_per_root * nodes_per_pod * gpus_per_node"
+  ],
+
+  "pods_per_root": 4,
+  "nodes_per_pod": 4,
+  "gpus_per_node": 4,
+
+  "latency": {
+    "_comment": "All values in nanoseconds (ns). One-way.",
+    "nvlink_ns": 60,
+    "node_to_pod_ns": 150,
+    "pod_to_root_ns": 250
+  },
+
+  "_effective_latencies": {
+    "same_node_ns":  60,
+    "same_pod_ns":   300,
+    "cross_pod_ns":  800
+  }
+}

@@ -6,8 +6,21 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional
 
 from .base import PerformanceProvider
-from .vidur_provider import VidurPerformanceProvider, VidurProviderConfig
 from .default_provider import DefaultPerformanceProvider
+
+# VidurPerformanceProvider is imported lazily to avoid a hard dependency on
+# the VIDUR third-party repository when only the default provider is used.
+_VidurPerformanceProvider = None
+_VidurProviderConfig = None
+
+
+def _import_vidur():
+    global _VidurPerformanceProvider, _VidurProviderConfig
+    if _VidurPerformanceProvider is None:
+        from .vidur_provider import VidurPerformanceProvider, VidurProviderConfig  # noqa: PLC0415
+        _VidurPerformanceProvider = VidurPerformanceProvider
+        _VidurProviderConfig = VidurProviderConfig
+    return _VidurPerformanceProvider, _VidurProviderConfig
 
 
 @dataclass
@@ -22,6 +35,7 @@ def create_performance_provider(config: PerformanceModelConfig) -> PerformancePr
         return DefaultPerformanceProvider()
     if provider_type != "vidur":
         raise ValueError(f"Unsupported performance model type: {config.type}")
+    VidurPerformanceProvider, VidurProviderConfig = _import_vidur()
     vidur_cfg = VidurProviderConfig(
         binary=_optional_str(config.vidur.get("binary")),
         cache_path=_optional_path(config.vidur.get("cache_path")),
