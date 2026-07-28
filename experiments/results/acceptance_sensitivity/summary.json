@@ -1,0 +1,122 @@
+[
+  {
+    "mean_accepted_per_window": 1.5411206701201068,
+    "accept_bit_rate": 0.6114253187422207,
+    "mean_burst_len": 1.7833800564176305,
+    "tpot_avg_ms": 18.92745049869342,
+    "throughput_rps": 10.856053594224424,
+    "effective_tok_s": 650.2105263157895,
+    "ttft_avg_ms": 51.10519514880092,
+    "completed": 102.0,
+    "acceptance_rate": 0.44130885189683505,
+    "name": "burst_0_70"
+  },
+  {
+    "mean_accepted_per_window": 1.9626763666506963,
+    "accept_bit_rate": 0.6663795801415507,
+    "mean_burst_len": 2.1120407913670847,
+    "tpot_avg_ms": 15.651253243698696,
+    "throughput_rps": 10.856053594224424,
+    "effective_tok_s": 786.3157894736842,
+    "ttft_avg_ms": 51.10519514880092,
+    "completed": 102.0,
+    "acceptance_rate": 0.5336857898121026,
+    "name": "burst_0_85"
+  },
+  {
+    "mean_accepted_per_window": 1.8565883191833121,
+    "accept_bit_rate": 0.7090992883745624,
+    "mean_burst_len": 2.401445635316993,
+    "tpot_avg_ms": 13.77332323539215,
+    "throughput_rps": 10.856053594224424,
+    "effective_tok_s": 690.0,
+    "ttft_avg_ms": 51.10519514880092,
+    "completed": 102.0,
+    "acceptance_rate": 0.4683146388511824,
+    "name": "burst_1_00"
+  },
+  {
+    "mean_accepted_per_window": 2.0790252266485996,
+    "accept_bit_rate": 0.731016565090412,
+    "mean_burst_len": 2.695133190572345,
+    "tpot_avg_ms": 15.878699134921806,
+    "throughput_rps": 10.856053594224424,
+    "effective_tok_s": 775.0526315789474,
+    "ttft_avg_ms": 51.10519514880092,
+    "completed": 102.0,
+    "acceptance_rate": 0.5260412945631207,
+    "name": "burst_1_15"
+  },
+  {
+    "mean_accepted_per_window": 2.130073078556562,
+    "accept_bit_rate": 0.755809337391192,
+    "mean_burst_len": 3.0601497086361458,
+    "tpot_avg_ms": 14.016096639906085,
+    "throughput_rps": 10.856053594224424,
+    "effective_tok_s": 794.1052631578947,
+    "ttft_avg_ms": 51.10519514880092,
+    "completed": 102.0,
+    "acceptance_rate": 0.5389726369936415,
+    "name": "burst_1_30"
+  },
+  {
+    "mean_accepted_per_window": 1.5138517703385048,
+    "accept_bit_rate": 0.6381857687548531,
+    "mean_burst_len": 2.0946027938173217,
+    "tpot_avg_ms": 15.779364063904554,
+    "throughput_rps": 10.856053594224424,
+    "effective_tok_s": 564.2105263157895,
+    "ttft_avg_ms": 58.203297997558025,
+    "completed": 102.0,
+    "acceptance_rate": 0.3829392012574123,
+    "name": "rate_m0_1"
+  },
+  {
+    "mean_accepted_per_window": 1.2033008891076817,
+    "accept_bit_rate": 0.5671614805162745,
+    "mean_burst_len": 1.8722243747807432,
+    "tpot_avg_ms": 17.890702701792115,
+    "throughput_rps": 10.856053594224424,
+    "effective_tok_s": 444.10526315789474,
+    "ttft_avg_ms": 66.67598131740286,
+    "completed": 102.0,
+    "acceptance_rate": 0.301421733228549,
+    "name": "rate_m0_2"
+  },
+  {
+    "mean_accepted_per_window": 1.8565883191833121,
+    "accept_bit_rate": 0.7090992883745624,
+    "mean_burst_len": 2.401445635316993,
+    "tpot_avg_ms": 13.77332323539215,
+    "throughput_rps": 10.856053594224424,
+    "effective_tok_s": 690.0,
+    "ttft_avg_ms": 51.10519514880092,
+    "completed": 102.0,
+    "acceptance_rate": 0.4683146388511824,
+    "name": "rate_p0_0"
+  },
+  {
+    "mean_accepted_per_window": 2.255729406940819,
+    "accept_bit_rate": 0.7801362352889726,
+    "mean_burst_len": 3.4872515465584195,
+    "tpot_avg_ms": 12.066209502572296,
+    "throughput_rps": 10.856053594224424,
+    "effective_tok_s": 834.7368421052631,
+    "ttft_avg_ms": 51.10519514880092,
+    "completed": 102.0,
+    "acceptance_rate": 0.5665499749946417,
+    "name": "rate_p0_1"
+  },
+  {
+    "mean_accepted_per_window": 2.7220724144549986,
+    "accept_bit_rate": 0.8510370962328503,
+    "mean_burst_len": 5.605278030494151,
+    "tpot_avg_ms": 10.688003397113144,
+    "throughput_rps": 10.856053594224424,
+    "effective_tok_s": 1013.0526315789474,
+    "ttft_avg_ms": 51.10519514880092,
+    "completed": 102.0,
+    "acceptance_rate": 0.6875759091233836,
+    "name": "rate_p0_2"
+  }
+]

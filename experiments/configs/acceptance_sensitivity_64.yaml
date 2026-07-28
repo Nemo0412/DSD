@@ -1,0 +1,106 @@
+# Discrete-event acceptance-seq sensitivity at N=64 (4:1 draft:target).
+# Used to replace first-order TPOT∝1/L̄ maps in the Technical Supplement.
+sim_time_ms: 8000
+seed: 123
+verbose: false
+debug: false
+
+speculation:
+  framework: vanilla
+  execution_mode: distributed
+  acceptance:
+    disable_model: true
+    default_rate: 0.7
+
+gamma: 4
+execution_mode: blocking
+router: jsq
+router_params: {}
+global_router: disabled
+
+performance_model:
+  type: default
+
+network:
+  enabled: true
+
+trace_path: traces/gsm8k_trace_10s_with_acceptance.jsonl
+trace_replay:
+  per_draft_rps: 0.25
+trace_defaults: {}
+prompt_length_min: 24
+prompt_length_max: 512
+answer_length_mean: 96
+answer_length_std: 24
+answer_length_min: 48
+answer_length_max: 160
+use_answer_distribution: true
+mixed_batching: true
+
+think_time:
+  enabled: true
+  distribution: lognormal
+  mean_ms: 200
+  cv: 0.4
+  min_ms: 20
+
+scheduler:
+  type: baseline
+  pools:
+    all_targets:
+      clusters:
+        - sens_cluster
+  prefill:
+    pool: all_targets
+    queue_policy: priority
+    max_batch_requests: 6
+    max_wait_ms: 0.8
+    delayed_batch_ms: 0.3
+    max_queue_depth: 24
+    backpressure_wait_ms: 0.08
+  decode:
+    pool: all_targets
+    queue_policy: priority
+    max_batch_requests: 8
+    max_wait_ms: 0.8
+    delayed_batch_ms: 0.3
+    max_queue_depth: 32
+    backpressure_wait_ms: 0.08
+
+workload:
+  arrival: poisson
+  rate_rps: 20.0
+
+auto_topology:
+  clusters:
+    - name: sens_cluster
+      router: jsq
+      router_params: {}
+      targets:
+        count: 13
+        tiers:
+          - name: target_tier
+            count: 13
+            model: llama-70b
+            gpu: A100
+            batch_window_ms: 0.5
+            batch_size: 4
+            prefill_latency_per_token: 0.10
+            decode_latency_per_token: 8.0
+      drafts:
+        count: 51
+        draft_bucket_labels:
+          - draft_label
+        count_by_label:
+          draft_label: 51
+        metadata_by_label:
+          draft_label:
+            hardware: A40
+            model_name: llama-7b
+            prefill_latency_per_token: 0.06
+            decode_latency_per_token: 2.0
+            draft_latency_per_token: 2.0
+      connectivity:
+        fanout_per_draft: 4
+        network_model:
+          type: fat_tree
