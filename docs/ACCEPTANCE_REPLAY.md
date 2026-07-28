@@ -60,6 +60,23 @@ The end-to-end pipeline `src/acceptance/run_pipeline.sh` also exports `traces/*_
 
 Point your YAML workload path at a `*_hardware_acceptance.jsonl` file to enable replay mode.
 
-## Synthetic demo only
+## Sensitivity perturbations
 
-`scripts/augment_trace_with_acceptance.py` synthesizes bits for schema demos (`metadata.acceptance_source=synthetic`). Prefer hardware export for paper-facing runs.
+```bash
+# Rate bias (±10%/±20% ones)
+python scripts/perturb_acceptance_seq.py \
+  --input traces/gsm8k_trace_10s_with_acceptance.jsonl \
+  --output /tmp/rate_m20.jsonl --mode rate-bias --delta -0.2 --report
+
+# Burst shorten/extend
+python scripts/perturb_acceptance_seq.py \
+  --input traces/gsm8k_trace_10s_with_acceptance.jsonl \
+  --output /tmp/burst_070.jsonl --mode burst --burst-factor 0.7 --report
+
+# Cross-split transfer (donor sequences onto eval requests)
+python scripts/perturb_acceptance_seq.py \
+  --input traces/eval.jsonl --donor traces/donor.jsonl \
+  --output /tmp/cross.jsonl --mode cross-split --report
+```
+
+Point the simulator YAML at the emitted JSONL to re-run end-to-end; `--report` also prints sequence stats and a first-order TPOT/throughput map from mean accepted tokens/window.

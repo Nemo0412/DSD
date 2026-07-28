@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, TypedDict
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, TypedDict
 
 from .acceptance_seq import normalize_acceptance_seq
 
@@ -23,6 +23,7 @@ class TraceRecordDict(TypedDict, total=False):
     mode_hint: str
     seed: int
     acceptance_seq: Sequence[int]
+    tree_accept: Sequence[Mapping[str, Any]]
     metadata: Dict[str, Any]
 
 
@@ -39,6 +40,7 @@ class TraceRecord:
     metadata: Mapping[str, Any] = field(default_factory=dict)
     request_id: Optional[str] = None
     acceptance_seq: Tuple[int, ...] = tuple()
+    tree_accept: Tuple[Mapping[str, Any], ...] = tuple()
 
     def to_dict(self) -> TraceRecordDict:
         data: TraceRecordDict = {
@@ -60,6 +62,8 @@ class TraceRecord:
             data["seed"] = self.seed
         if self.acceptance_seq:
             data["acceptance_seq"] = list(self.acceptance_seq)
+        if self.tree_accept:
+            data["tree_accept"] = [dict(item) for item in self.tree_accept]
         if self.metadata:
             data["metadata"] = dict(self.metadata)
         return data
@@ -95,6 +99,11 @@ class TraceRecord:
         except (TypeError, ValueError) as exc:
             raise TraceParseError(str(exc)) from exc
 
+        raw_tree = payload.get("tree_accept")
+        if raw_tree is None and isinstance(metadata, Mapping):
+            raw_tree = metadata.get("tree_accept")
+        tree_accept = _coerce_tree_accept(raw_tree)
+
         if draft_id is None and device_tier is None:
             device_tier = "default"
         if arrival_ms < 0:
@@ -112,6 +121,7 @@ class TraceRecord:
             metadata=dict(metadata),
             request_id=request_id,
             acceptance_seq=acceptance_seq,
+            tree_accept=tree_accept,
         )
 
     def with_defaults(self, defaults: Mapping[str, Any]) -> "TraceRecord":
@@ -161,3 +171,16 @@ def _coerce_optional_str(value: Any, field_name: str) -> Optional[str]:
         trimmed = value.strip()
         return trimmed or None
     raise TraceParseError(f"{field_name} must be a string if provided")
+
+
+def _coerce_tree_accept(value: Any) -> Tuple[Mapping[str, Any], ...]:
+    if value is None:
+        return tuple()
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise TraceParseError("tree_accept must be a list of objects")
+    rounds: List[Mapping[str, Any]] = []
+    for item in value:
+        if not isinstance(item, Mapping):
+            raise TraceParseError("tree_accept entries must be objects")
+        rounds.append(dict(item))
+    return tuple(rounds)
