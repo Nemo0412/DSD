@@ -84,6 +84,9 @@ def main() -> None:
                     mean_accept=args.mean_accept,
                     rng=rng,
                 )
+                metadata = dict(row.get("metadata") or {})
+                metadata["acceptance_source"] = "synthetic"
+                row["metadata"] = metadata
             dst.write(json.dumps(row, ensure_ascii=True) + "\n")
 
     print(f"Wrote acceptance-augmented trace to {args.output}")

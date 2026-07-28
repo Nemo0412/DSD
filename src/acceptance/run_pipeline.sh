@@ -295,4 +295,30 @@ conda_exec python "${EVAL_SCRIPT}" \
   --print-report \
   --metrics-json "${RUN_RESULTS_DIR}/test_regressor_metrics.json"
 
+echo ">>> Exporting hardware acceptance_seq traces for simulator replay"
+EXPORT_SCRIPT="${PROJECT_ROOT}/scripts/export_acceptance_seq_from_details.py"
+TRACE_DIR="${PROJECT_ROOT}/traces"
+mkdir -p "${TRACE_DIR}"
+for split in train val test; do
+  details_path="${RUN_RESULTS_DIR}/${split}_details.jsonl"
+  if [[ -f "${details_path}" ]]; then
+    conda_exec python "${EXPORT_SCRIPT}" \
+      --details "${details_path}" \
+      --output "${TRACE_DIR}/${RUN_LABEL}_${split}_hardware_acceptance.jsonl" \
+      --arrival-stride-ms 25
+  fi
+done
+# Also export per-dataset test traces when available.
+for entry in "${DATASETS[@]}"; do
+  read -r tag _ _ _ _ _ _ <<<"${entry}"
+  details_path="${RUN_RESULTS_DIR}/${tag}_test_details.jsonl"
+  if [[ -f "${details_path}" ]]; then
+    conda_exec python "${EXPORT_SCRIPT}" \
+      --details "${details_path}" \
+      --output "${TRACE_DIR}/${RUN_LABEL}_${tag}_test_hardware_acceptance.jsonl" \
+      --arrival-stride-ms 25
+  fi
+done
+
 echo ">>> Pipeline complete. Artifacts in ${RUN_RESULTS_DIR}"
+echo ">>> Replay traces written under ${TRACE_DIR}/*_hardware_acceptance.jsonl"

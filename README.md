@@ -12,8 +12,8 @@ A discrete-event simulator for **distributed speculative decoding (DSD)** in dat
 - **Network-aware routing**: latency between draft and target servers based on physical topology
 - **Scheduling policies**: JSQ, Random, Round-Robin, JSQ(d), Weighted JSQ, JIQ, and more
 - **Acceptance modeling**:
-  - **Replay mode:** per-request `acceptance_seq` bitstrings (hardware-collected or augmented)
-  - **Predictor mode:** ML regressors (`.joblib`) or fixed acceptance rates when no sequence is present
+  - **Replay mode (preferred):** per-request `acceptance_seq` from hardware profiling (`scripts/export_acceptance_seq_from_details.py`)
+  - **Predictor fallback:** ML regressors (`.joblib`) or fixed acceptance rates when no sequence is present
 - **Performance modeling**: per-token compute latency via default provider or VIDUR integration
 
 ---
