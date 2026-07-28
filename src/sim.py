@@ -1255,6 +1255,7 @@ def _generate_scaled_trace(template: Sequence[TraceRecord], count: int, horizon_
             metadata=new_meta,
             request_id=src.request_id or f"trace_{idx:05d}",
             acceptance_seq=src.acceptance_seq,
+            tree_accept=src.tree_accept,
         )
         generated.append(record)
     return generated
