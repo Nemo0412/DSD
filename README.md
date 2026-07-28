@@ -11,7 +11,9 @@ A discrete-event simulator for **distributed speculative decoding (DSD)** in dat
 - **Speculative decoding** pipeline: draft servers propose token chunks; target servers verify and accept/reject
 - **Network-aware routing**: latency between draft and target servers based on physical topology
 - **Scheduling policies**: JSQ, Random, Round-Robin, JSQ(d), Weighted JSQ, JIQ, and more
-- **Acceptance modeling**: ML regressors (`.joblib`) or fixed acceptance rates
+- **Acceptance modeling**:
+  - **Replay mode:** per-request `acceptance_seq` bitstrings (hardware-collected or augmented)
+  - **Predictor mode:** ML regressors (`.joblib`) or fixed acceptance rates when no sequence is present
 - **Performance modeling**: per-token compute latency via default provider or VIDUR integration
 
 ---

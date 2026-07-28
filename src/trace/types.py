@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Mapping, Optional, TypedDict
+from typing import Any, Dict, Mapping, Optional, Sequence, Tuple, TypedDict
+
+from .acceptance_seq import normalize_acceptance_seq
 
 
 class TraceParseError(ValueError):
@@ -20,6 +22,7 @@ class TraceRecordDict(TypedDict, total=False):
     slo_class: str
     mode_hint: str
     seed: int
+    acceptance_seq: Sequence[int]
     metadata: Dict[str, Any]
 
 
@@ -35,6 +38,7 @@ class TraceRecord:
     seed: Optional[int] = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
     request_id: Optional[str] = None
+    acceptance_seq: Tuple[int, ...] = tuple()
 
     def to_dict(self) -> TraceRecordDict:
         data: TraceRecordDict = {
@@ -54,6 +58,8 @@ class TraceRecord:
             data["mode_hint"] = self.mode_hint
         if self.seed is not None:
             data["seed"] = self.seed
+        if self.acceptance_seq:
+            data["acceptance_seq"] = list(self.acceptance_seq)
         if self.metadata:
             data["metadata"] = dict(self.metadata)
         return data
@@ -79,6 +85,16 @@ class TraceRecord:
         if not isinstance(metadata, Mapping):
             raise TraceParseError("metadata must be a mapping")
 
+        raw_seq = payload.get("acceptance_seq")
+        if raw_seq is None:
+            raw_seq = payload.get("acceptance_sequence")
+        if raw_seq is None and isinstance(metadata, Mapping):
+            raw_seq = metadata.get("acceptance_seq") or metadata.get("acceptance_sequence")
+        try:
+            acceptance_seq = normalize_acceptance_seq(raw_seq)
+        except (TypeError, ValueError) as exc:
+            raise TraceParseError(str(exc)) from exc
+
         if draft_id is None and device_tier is None:
             device_tier = "default"
         if arrival_ms < 0:
@@ -95,6 +111,7 @@ class TraceRecord:
             seed=seed,
             metadata=dict(metadata),
             request_id=request_id,
+            acceptance_seq=acceptance_seq,
         )
 
     def with_defaults(self, defaults: Mapping[str, Any]) -> "TraceRecord":
@@ -144,4 +161,3 @@ def _coerce_optional_str(value: Any, field_name: str) -> Optional[str]:
         trimmed = value.strip()
         return trimmed or None
     raise TraceParseError(f"{field_name} must be a string if provided")
-

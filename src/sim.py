@@ -19,6 +19,7 @@ from network.topology import build_latency_lookup, NetworkModelError
 from network.fabric import NetworkFabric
 from trace.trace_loader import iter_trace_records
 from trace.types import TraceRecord, TraceParseError
+from trace.acceptance_seq import AcceptanceSeqCursor
 from acceptance.regressor import AcceptanceRegressor
 
 # ---------- Config & Types ----------
@@ -1253,6 +1254,7 @@ def _generate_scaled_trace(template: Sequence[TraceRecord], count: int, horizon_
             seed=src.seed,
             metadata=new_meta,
             request_id=src.request_id or f"trace_{idx:05d}",
+            acceptance_seq=src.acceptance_seq,
         )
         generated.append(record)
     return generated
@@ -1907,6 +1909,7 @@ class DraftServer:
         self._pending_bucket = max(1, int(getattr(cfg, "acceptance_pending_bucket", 1) or 1))
         self._queue_bucket = max(1, int(getattr(cfg, "acceptance_queue_bucket", 1) or 1))
         self._acceptance_cache: Dict[Tuple[Any, ...], Tuple[float, Tuple[float, ...]]] = {}
+        self._active_acceptance_cursor = None
         self.execution_mode = getattr(cfg, "speculation_execution_mode", "distributed").lower()
         self.framework = getattr(cfg, "speculation_framework", "vanilla").lower()
         self._workload_enabled = bool(cfg.workload.rate_rps > 0) if cfg and cfg.workload else False
@@ -2261,11 +2264,33 @@ class DraftServer:
         return rate, probs
 
 
-    def _simulate_verification(self, tokens: int, conn: ConnectionParams, context_length: int) -> VerifyResult:
-        """Simulate target verification of draft tokens."""
+    def _simulate_verification(
+        self,
+        tokens: int,
+        conn: ConnectionParams,
+        context_length: int,
+        *,
+        acceptance_cursor: Optional[AcceptanceSeqCursor] = None,
+    ) -> VerifyResult:
+        """Simulate target verification of draft tokens.
+
+        Preference order:
+        1. Replay ``acceptance_seq`` from the request trace when available.
+        2. Fall back to the configured acceptance model / fixed rate.
+        """
         tokens = max(0, int(tokens))
         if tokens == 0:
             return VerifyResult(chunk_id=self.chunks_sent, accepted_tokens=0, rejected_tokens=0, total_tokens=0)
+
+        if acceptance_cursor is not None and acceptance_cursor.has_data():
+            accepted, rejected = acceptance_cursor.verify(tokens)
+            return VerifyResult(
+                chunk_id=self.chunks_sent,
+                accepted_tokens=accepted,
+                rejected_tokens=rejected,
+                total_tokens=tokens,
+            )
+
         accepted = 0
         rate, probabilities = self._lookup_acceptance(conn, context_length, tokens)
         for prob in probabilities:
@@ -2645,7 +2670,9 @@ class DraftServer:
                 result = self._simulate_verification(
                     candidate.depth,
                     conn,
-                    prompt_length + tokens_generated + candidate.depth)
+                    prompt_length + tokens_generated + candidate.depth,
+                    acceptance_cursor=getattr(self, "_active_acceptance_cursor", None),
+                )
                 self.total_tokens_accepted += result.accepted_tokens
                 self.total_tokens_rejected += result.rejected_tokens
                 if hasattr(self.metrics, 'token_metrics'):
@@ -2780,6 +2807,14 @@ class DraftServer:
                 priority_class = self.scheduler.default_priority_class
             priority_class = priority_class or "standard"
 
+            # Prefer hardware-collected acceptance_seq replay when present on the trace.
+            if trace_record is not None and getattr(trace_record, "acceptance_seq", None):
+                self._active_acceptance_cursor = AcceptanceSeqCursor.from_optional(
+                    trace_record.acceptance_seq
+                )
+            else:
+                self._active_acceptance_cursor = None
+
             if self.framework == "eagle":
                 yield from self._run_eagle_conversation(
                     conversation_id,
@@ -2791,6 +2826,7 @@ class DraftServer:
                     priority_class,
                     trace_record,
                 )
+                self._active_acceptance_cursor = None
                 if not self._trace_mode:
                     self._schedule_next_arrival(self.env.now)
                 elif self._trace_mode and self._think_enabled:
@@ -3138,7 +3174,9 @@ class DraftServer:
                     result = self._simulate_verification(
                         tokens_this_round,
                         conn,
-                        current_context + tokens_this_round)
+                        current_context + tokens_this_round,
+                        acceptance_cursor=getattr(self, "_active_acceptance_cursor", None),
+                    )
                     job.accepted_tokens = result.accepted_tokens
                     self.total_tokens_accepted += result.accepted_tokens
                     self.total_tokens_rejected += result.rejected_tokens
@@ -3283,6 +3321,7 @@ class DraftServer:
                 )
 
             # Schedule next arrival for both think_enabled and workload-driven modes
+            self._active_acceptance_cursor = None
             if not self._trace_mode:
                 self._schedule_next_arrival(self.env.now)
             elif self._trace_mode and self._think_enabled:
