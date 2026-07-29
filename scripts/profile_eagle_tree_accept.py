@@ -18,7 +18,14 @@ from typing import Any, Dict, List, Optional
 
 import torch
 
-EAGLE_ROOT = Path(os.environ.get("EAGLE_ROOT", "/scratch/ll5914/DSD-SIM/eagle/EAGLE"))
+# Require an explicit EAGLE checkout path (no personal machine defaults).
+_eagle_root = os.environ.get("EAGLE_ROOT")
+if not _eagle_root:
+    raise SystemExit(
+        "Set EAGLE_ROOT to your local SafeAILab/EAGLE checkout before running "
+        "profile_eagle_tree_accept.py"
+    )
+EAGLE_ROOT = Path(_eagle_root)
 sys.path.insert(0, str(EAGLE_ROOT))
 
 from eagle.model.ea_model import EaModel  # noqa: E402

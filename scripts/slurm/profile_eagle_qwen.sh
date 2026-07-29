@@ -1,6 +1,5 @@
 #!/bin/bash
 #SBATCH --job-name=eagle_qwen_smoke
-#SBATCH --account=torch_pr_674_tandon_advanced
 #SBATCH --partition=l40s_public
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -8,26 +7,35 @@
 #SBATCH --gres=gpu:l40s:1
 #SBATCH --mem=128G
 #SBATCH --time=06:00:00
-#SBATCH --output=/scratch/ll5914/DSD-SIM/logs/eagle_qwen_%j.out
-#SBATCH --error=/scratch/ll5914/DSD-SIM/logs/eagle_qwen_%j.err
+#SBATCH --output=%x_%j.out
+#SBATCH --error=%x_%j.err
+# Optional site-specific account (do not hardcode usernames/accounts in-repo):
+#   sbatch --account=YOUR_ACCOUNT scripts/slurm/profile_eagle_qwen.sh
 
 set -euo pipefail
 
-REPO=/home/ll5914/DSD-SIM
-EAGLE_ROOT=/scratch/ll5914/DSD-SIM/eagle/EAGLE
-OUT=${REPO}/results/eagle_qwen_smoke
-PROMPTS=${REPO}/prompts/gsm8k_smoke_32.jsonl
-# Dedicated env: transformers 4.53.1 (EAGLE-compatible). Do NOT use SVD's transformers 5.x.
-PY=/scratch/ll5914/DSD-SIM/envs/eagle/bin/python
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+OUT="${REPO}/results/eagle_qwen_smoke"
+PROMPTS="${REPO}/prompts/gsm8k_smoke_32.jsonl"
+# Prefer an EAGLE-compatible Python (transformers~=4.53). Override with PY=...
+PY="${PY:-python3}"
+LOG_DIR="${LOG_DIR:-${REPO}/logs}"
 
-export HF_HOME=/scratch/ll5914/.huggingface
-export TRANSFORMERS_CACHE=${HF_HOME}/hub
-export HF_HUB_CACHE=${HF_HOME}/hub
+# Required: path to SafeAILab/EAGLE checkout
+if [[ -z "${EAGLE_ROOT:-}" ]]; then
+  echo "ERROR: set EAGLE_ROOT to your local SafeAILab/EAGLE checkout" >&2
+  exit 1
+fi
+
+if [[ -n "${HF_HOME:-}" ]]; then
+  export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-${HF_HOME}/hub}"
+  export HF_HUB_CACHE="${HF_HUB_CACHE:-${HF_HOME}/hub}"
+fi
 export TOKENIZERS_PARALLELISM=false
 export PYTHONUNBUFFERED=1
 export EAGLE_ROOT
 
-mkdir -p "${OUT}" /scratch/ll5914/DSD-SIM/logs
+mkdir -p "${OUT}" "${LOG_DIR}"
 
 echo "Host=$(hostname) CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-}"
 nvidia-smi -L || true
@@ -57,10 +65,11 @@ echo ">>> EAGLE tree_accept profiling"
 
 echo ">>> Done. trace=${TRACE}"
 wc -l "${TRACE}"
-"${PY}" - <<'PY'
+TRACE_PATH="${TRACE}" "${PY}" - <<'PY'
 import json
+import os
 from pathlib import Path
-p = Path("/home/ll5914/DSD-SIM/results/eagle_qwen_smoke/gsm8k_smoke_tree_accept.jsonl")
+p = Path(os.environ["TRACE_PATH"])
 n = 0
 rounds = 0
 acc = 0.0

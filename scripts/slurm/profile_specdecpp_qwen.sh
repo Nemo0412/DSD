@@ -1,6 +1,5 @@
 #!/bin/bash
 #SBATCH --job-name=specdecpp_qwen_smoke
-#SBATCH --account=torch_pr_674_tandon_advanced
 #SBATCH --partition=l40s_public
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -8,23 +7,28 @@
 #SBATCH --gres=gpu:l40s:1
 #SBATCH --mem=128G
 #SBATCH --time=06:00:00
-#SBATCH --output=/scratch/ll5914/DSD-SIM/logs/specdecpp_qwen_%j.out
-#SBATCH --error=/scratch/ll5914/DSD-SIM/logs/specdecpp_qwen_%j.err
+#SBATCH --output=%x_%j.out
+#SBATCH --error=%x_%j.err
+# Optional site-specific account (do not hardcode usernames/accounts in-repo):
+#   sbatch --account=YOUR_ACCOUNT scripts/slurm/profile_specdecpp_qwen.sh
 
 set -euo pipefail
 
-REPO=/home/ll5914/DSD-SIM
-OUT=${REPO}/results/specdecpp_qwen_smoke
-PROMPTS=${REPO}/prompts/gsm8k_smoke_32.jsonl
-PY=/scratch/ll5914/conda_envs/SVD/bin/python
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+OUT="${REPO}/results/specdecpp_qwen_smoke"
+PROMPTS="${REPO}/prompts/gsm8k_smoke_32.jsonl"
+PY="${PY:-python3}"
+LOG_DIR="${LOG_DIR:-${REPO}/logs}"
 
-export HF_HOME=/scratch/ll5914/.huggingface
-export TRANSFORMERS_CACHE=${HF_HOME}/hub
-export HF_HUB_CACHE=${HF_HOME}/hub
+# Optional caches (override via env; no personal defaults)
+if [[ -n "${HF_HOME:-}" ]]; then
+  export TRANSFORMERS_CACHE="${TRANSFORMERS_CACHE:-${HF_HOME}/hub}"
+  export HF_HUB_CACHE="${HF_HUB_CACHE:-${HF_HOME}/hub}"
+fi
 export TOKENIZERS_PARALLELISM=false
 export PYTHONUNBUFFERED=1
 
-mkdir -p "${OUT}" /scratch/ll5914/DSD-SIM/logs
+mkdir -p "${OUT}" "${LOG_DIR}"
 
 echo "Host=$(hostname) CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-}"
 nvidia-smi -L || true
@@ -65,10 +69,11 @@ echo ">>> Export acceptance_seq traces"
   --arrival-stride-ms 25
 
 # Stamp algorithm metadata onto each row
-"${PY}" - <<'PY'
+TRACE_PATH="${TRACE}" "${PY}" - <<'PY'
 import json
+import os
 from pathlib import Path
-path = Path("/home/ll5914/DSD-SIM/results/specdecpp_qwen_smoke/gsm8k_smoke_hardware_acceptance.jsonl")
+path = Path(os.environ["TRACE_PATH"])
 rows = []
 for line in path.read_text().splitlines():
     if not line.strip():
