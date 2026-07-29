@@ -18,6 +18,73 @@ A discrete-event simulator for **distributed speculative decoding (DSD)** in dat
 
 ---
 
+## GPU Profiling Handoff for SpecDec++ and EAGLE
+
+Use the same model pair, tokenizer, dataset split, temperature, top-p, maximum output length, and random seeds for profiling and simulation. Store these settings in each trace row's `metadata` so results remain attributable to one decoding configuration.
+
+### SpecDec++ / linear speculative decoding
+
+Record the per-request verification outcome as `acceptance_seq`, a flat list of `0`/`1` values in draft-token order. Within each speculation round, the accepted length is the longest leading run of ones, terminated by the first zero.
+
+If the GPU profiler emits `speculative_profiler.py --details-jsonl` records, convert them directly:
+
+```bash
+python scripts/export_acceptance_seq_from_details.py \
+  --details results/specdecpp_details.jsonl \
+  --workload traces/workload.jsonl \
+  --output traces/specdecpp_hardware_acceptance.jsonl
+```
+
+At minimum, retain `request_id`, prompt and target lengths, `acceptance_seq`, model pair, dataset, sampling settings, speculation-window settings, and seed.
+
+### EAGLE / tree speculative decoding
+
+Linear `acceptance_seq` is insufficient for EAGLE. Record one object per verification round:
+
+```json
+{
+  "request_id": "req-0001",
+  "tree_accept": [
+    {
+      "round": 0,
+      "depth": 4,
+      "candidates": 16,
+      "verified": 16,
+      "accepted_path_len": 3,
+      "accepted_branch": [0, 1, 0],
+      "draft_generation_ms": 2.31,
+      "target_verification_ms": 5.84
+    }
+  ],
+  "metadata": {
+    "algorithm": "EAGLE",
+    "dataset": "GSM8K",
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "seed": 121
+  }
+}
+```
+
+Also retain the tree topology or parent index for every submitted candidate when it cannot be reconstructed from `accepted_branch`.
+
+`tree_accept` is currently preserved by the trace tooling, but the EAGLE controller does not yet replay these hardware tree logs. Do not label existing EAGLE-style controller results as hardware-log replay. After collecting logs, add the replay adapter that charges draft generation and target verification from `candidates`/`verified`, advances output by `accepted_path_len`, and then re-run the node-scale sweep.
+
+### Acceptance sensitivity re-simulation
+
+The sensitivity runner now exports mean accepted length, TPOT, token throughput, rounds/request, candidates verified/request, draft generation, target queueing, target verification, and forward/response network time:
+
+```bash
+python scripts/run_acceptance_sensitivity_sim.py \
+  --config experiments/configs/acceptance_sensitivity_64.yaml \
+  --traces-dir traces/perturbed \
+  --out-dir experiments/results/acceptance_sensitivity
+```
+
+Burst perturbation is position-preserving: shortening converts surplus accepted bits to rejects in place; it never deletes bits or randomly pads a sequence.
+
+---
+
 ## Recent Changes
 
 ### Fat-tree Network Topology (`src/network/`)

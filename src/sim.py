@@ -813,6 +813,7 @@ class ChunkBarrier:
 class TokenMetrics:
     """Track token generation and acceptance across all devices."""
     total_accepted_tokens: int = 0
+    total_output_tokens: int = 0
     total_rejected_tokens: int = 0
     total_generated_tokens: int = 0
     start_time_ms: float = 0
@@ -823,7 +824,8 @@ class TokenMetrics:
         if self.end_time_ms <= self.start_time_ms:
             return 0
         duration_s = (self.end_time_ms - self.start_time_ms) / 1000.0
-        return self.total_accepted_tokens / duration_s
+        output_tokens = self.total_output_tokens or self.total_accepted_tokens
+        return output_tokens / duration_s
     
     def get_acceptance_rate(self) -> float:
         if self.total_generated_tokens == 0:
@@ -862,6 +864,8 @@ class Metrics:
         tpot_samples: Optional[Sequence[float]] = None,
         ttft_breakdown: Optional[Mapping[str, float]] = None,
         decode_breakdown: Optional[Mapping[str, float]] = None,
+        rounds: Optional[int] = None,
+        candidates_verified: Optional[int] = None,
     ) -> None:
         """Track per-conversation timing (only after burn-in)."""
         if start_ms < self.burn_in_ms:
@@ -889,6 +893,10 @@ class Metrics:
             record["ttft_breakdown"] = dict(ttft_breakdown)
         if decode_breakdown:
             record["decode_breakdown"] = dict(decode_breakdown)
+        if rounds is not None:
+            record["rounds"] = int(rounds)
+        if candidates_verified is not None:
+            record["candidates_verified"] = int(candidates_verified)
         self.conversations.append(record)
 
     def summary(self) -> Dict[str, float]:
@@ -1049,6 +1057,26 @@ class Metrics:
             result["p50_conversation_ms"] = result.get("p50_conversation_ms_completed", result.get("p50_conversation_ms", 0))
             result["p95_conversation_ms"] = result.get("p95_conversation_ms_completed", result.get("p95_conversation_ms", 0))
             result["p99_conversation_ms"] = result.get("p99_conversation_ms_completed", result.get("p99_conversation_ms", 0))
+            rounds = [float(entry["rounds"]) for entry in completed_entries if "rounds" in entry]
+            candidates = [
+                float(entry["candidates_verified"])
+                for entry in completed_entries
+                if "candidates_verified" in entry
+            ]
+            if rounds:
+                result["rounds_per_request_avg"] = sum(rounds) / len(rounds)
+            if candidates:
+                result["candidates_verified_per_request_avg"] = sum(candidates) / len(candidates)
+            else:
+                generated = [
+                    float(entry["tokens_generated"])
+                    for entry in completed_entries
+                    if "tokens_generated" in entry
+                ]
+                if generated:
+                    result["candidates_verified_per_request_avg"] = (
+                        sum(generated) / len(generated)
+                    )
 
             ttft_components: Dict[str, float] = {}
             ttft_count = 0
@@ -1075,6 +1103,9 @@ class Metrics:
 
         decode_jobs = [j for j in filtered if j.job_type == "decode"]
         result["decode_jobs_count"] = len(decode_jobs)
+        completed_count = int(result.get("completed_conversation_count", 0))
+        if decode_jobs and completed_count > 0 and not result.get("rounds_per_request_avg"):
+            result["rounds_per_request_avg"] = len(decode_jobs) / completed_count
         if decode_jobs:
             queue_vals = []
             compute_vals = []
@@ -2310,16 +2341,44 @@ class DraftServer:
 
     def _predict_generation_latency(self, tokens: int, context_length: int) -> float:
         """Use the performance provider to estimate local draft generation time."""
-        if self.performance is None or tokens <= 0:
+        if tokens <= 0:
             return 0.0
 
         metadata = self.metadata or {}
-        profile = metadata.get("vidur_profile") or metadata.get("vidur") or {}
-        model = metadata.get("model") or profile.get("model_name")
-        hardware = metadata.get("gpu") or profile.get("device")
+        device_metadata = metadata.get("metadata") or {}
+        profile = (
+            device_metadata.get("vidur_profile")
+            or device_metadata.get("vidur")
+            or metadata.get("vidur_profile")
+            or metadata.get("vidur")
+            or {}
+        )
+        model = (
+            device_metadata.get("model")
+            or device_metadata.get("model_name")
+            or metadata.get("model")
+            or metadata.get("model_name")
+            or profile.get("model_name")
+        )
+        hardware = (
+            device_metadata.get("gpu")
+            or device_metadata.get("hardware")
+            or metadata.get("gpu")
+            or metadata.get("hardware")
+            or profile.get("device")
+        )
+        fallback_per_token = float(
+            device_metadata.get("draft_latency_per_token")
+            or device_metadata.get("decode_latency_per_token")
+            or metadata.get("draft_latency_per_token")
+            or metadata.get("decode_latency_per_token")
+            or 0.0
+        )
 
         if not model and not hardware and not profile:
-            return 0.0
+            return fallback_per_token * tokens
+        if self.performance is None:
+            return fallback_per_token * tokens
 
         request = PhaseRequest(
             phase="decode",
@@ -2337,7 +2396,7 @@ class DraftServer:
         )
         metrics = self.performance.get_metrics(request)
         if metrics is None:
-            return 0.0
+            return fallback_per_token * tokens
         return max(0.0, metrics.latency_ms)
     
     def _sample_prompt_length(self) -> int:
@@ -3045,6 +3104,7 @@ class DraftServer:
             # Phase 2: Generate answer with multiple speculation rounds
             tokens_generated_in_conversation = 0
             tokens_accepted_in_conversation = 0
+            output_tokens_in_conversation = 0
             first_token_time_ms = None  # Track TTFT
             conversation_tpot_samples: List[float] = []
             conversation_rtt_samples: List[float] = []
@@ -3055,16 +3115,22 @@ class DraftServer:
                 self.router.update_progress(self.id, 0, 0, answer_length)
 
             try:
-                for round_num in range(rounds_needed):
+                round_num = 0
+                max_rounds = max(rounds_needed, answer_length * 2)
+                while (
+                    output_tokens_in_conversation < answer_length
+                    and round_num < max_rounds
+                ):
+                    round_num += 1
                     round_start = self.env.now
 
                     # Determine how many tokens to generate in this round
-                    tokens_remaining = answer_length - tokens_generated_in_conversation
+                    tokens_remaining = answer_length - output_tokens_in_conversation
                     tokens_this_round = min(gamma_value, tokens_remaining)
                     if self.id in ["llama_d000", "llama_d001"]:
-                        print(f"[{self.env.now:.1f}ms] Draft {self.id}: Round {round_num+1}/{rounds_needed}, tokens_this_round={tokens_this_round}", flush=True)
+                        print(f"[{self.env.now:.1f}ms] Draft {self.id}: Round {round_num}, tokens_this_round={tokens_this_round}", flush=True)
 
-                    current_context = prompt_length + tokens_generated_in_conversation
+                    current_context = prompt_length + output_tokens_in_conversation
                     # Generate draft tokens using performance provider latency
                     if conversation_fused:
                         generation_latency = 0.0
@@ -3081,7 +3147,7 @@ class DraftServer:
                     tokens_generated_in_conversation += tokens_this_round
 
                     if self.cfg.debug:
-                        print(f"[{self.env.now:.1f}ms] Draft {self.id}: Round {round_num+1}/{rounds_needed} - "
+                        print(f"[{self.env.now:.1f}ms] Draft {self.id}: Round {round_num} - "
                               f"Generated {tokens_this_round} tokens for target {target_id}", flush=True)
 
                     # Create a decode job with completion event
@@ -3182,6 +3248,14 @@ class DraftServer:
                     self.total_tokens_accepted += result.accepted_tokens
                     self.total_tokens_rejected += result.rejected_tokens
                     tokens_accepted_in_conversation += result.accepted_tokens
+                    # A rejected prefix contributes the target correction token;
+                    # a fully accepted window contributes the accepted draft tokens.
+                    correction_tokens = 1 if result.accepted_tokens < tokens_this_round else 0
+                    output_advance = min(
+                        tokens_remaining,
+                        result.accepted_tokens + correction_tokens,
+                    )
+                    output_tokens_in_conversation += output_advance
 
                     # Calculate round-trip time for this chunk
                     rtt = self.env.now - round_start
@@ -3191,30 +3265,34 @@ class DraftServer:
                     if self.env.now >= self.cfg.burn_in_ms:
                         self.metrics.token_metrics.total_generated_tokens += tokens_this_round
                         self.metrics.token_metrics.total_accepted_tokens += result.accepted_tokens
+                        self.metrics.token_metrics.total_output_tokens += output_advance
                         self.metrics.token_metrics.total_rejected_tokens += result.rejected_tokens
 
-                    if result.accepted_tokens > 0:
-                        per_token = rtt / max(1, result.accepted_tokens)
-                        conversation_tpot_samples.extend([per_token] * result.accepted_tokens)
+                    if output_advance > 0:
+                        per_token = rtt / output_advance
+                        conversation_tpot_samples.extend([per_token] * output_advance)
                         if first_token_time_ms is None:
                             first_token_time_ms = self.env.now
                             ttft_pending = False
 
                         # Update progress for Semi-Clairvoyant router with actual acceptance
                         if hasattr(self.router, 'update_progress'):
-                            self.router.update_progress(self.id, tokens_generated_in_conversation,
-                                                   tokens_accepted_in_conversation, answer_length)
+                            self.router.update_progress(
+                                self.id,
+                                output_tokens_in_conversation,
+                                tokens_accepted_in_conversation,
+                                answer_length,
+                            )
 
                         if self.cfg.debug:
-                            print(f"[{self.env.now:.1f}ms] Draft {self.id}: Round {round_num+1} result: "
-                                  f"{result.accepted_tokens}/{tokens_this_round} accepted, RTT={rtt:.1f}ms", flush=True)
+                            print(f"[{self.env.now:.1f}ms] Draft {self.id}: Round {round_num} result: "
+                                  f"{result.accepted_tokens}/{tokens_this_round} accepted, "
+                                  f"advanced={output_advance}, RTT={rtt:.1f}ms", flush=True)
 
-                        if tokens_accepted_in_conversation >= answer_length:
+                        if output_tokens_in_conversation >= answer_length:
                             conversation_completed = True
                             break
-
-                else:
-                    conversation_completed = True
+                conversation_completed = output_tokens_in_conversation >= answer_length
             finally:
                 if conversation_completed and tokens_generated_in_conversation > 0:
                     conversation_time = self.env.now - conversation_start
@@ -3249,6 +3327,8 @@ class DraftServer:
                         tpot_samples=conversation_tpot_samples,
                         ttft_breakdown=ttft_breakdown,
                         decode_breakdown=decode_breakdown,
+                        rounds=len(conversation_rtt_samples),
+                        candidates_verified=tokens_generated_in_conversation,
                     )
                 conv_count = len(getattr(self.metrics, "conversations", []))
                 if self.cfg.verbose and self.cfg.max_conversations:
@@ -5376,7 +5456,15 @@ def _collect_metrics_json(cfg: Config, metrics, summary: Dict[str, float], targe
         metrics_json["conversation_throughput_rps"] = summary.get("completed_conversation_count", 0) / (span_ms / 1000.0)
 
     for key, value in summary.items():
-        if key.startswith("ttft_breakdown_") or key.startswith("decode_breakdown_"):
+        if (
+            key.startswith("ttft_breakdown_")
+            or key.startswith("decode_breakdown_")
+            or key
+            in {
+                "rounds_per_request_avg",
+                "candidates_verified_per_request_avg",
+            }
+        ):
             metrics_json[key] = value
 
     # Calculate target throughput as actual service rate of prefill jobs

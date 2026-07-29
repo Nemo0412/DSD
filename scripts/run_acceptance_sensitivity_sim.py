@@ -44,21 +44,36 @@ def run_one(base_cfg: dict, trace_path: Path, out_json: Path, gamma: int) -> Dic
         tmp_path.unlink(missing_ok=True)
 
     stats = corpus_stats(load_rows(trace_path), gamma=gamma)
+    def metric(*names: str) -> float:
+        for name in names:
+            value = metrics.get(name)
+            if value is not None:
+                return float(value)
+        return 0.0
+
     result = {
         "mean_accepted_per_window": float(stats["mean_accepted_per_window"]),
         "accept_bit_rate": float(stats["accept_bit_rate"]),
         "mean_burst_len": float(stats["mean_burst_len"]),
-        "tpot_avg_ms": float(metrics.get("tpot_avg_ms") or metrics.get("avg_tpot_ms") or 0.0),
-        "throughput_rps": float(
-            metrics.get("conversation_throughput_rps")
-            or metrics.get("goodput_rps")
-            or metrics.get("throughput_jobs_s")
-            or 0.0
+        "tpot_avg_ms": metric("tpot_avg_ms", "avg_tpot_ms"),
+        "throughput_rps": metric(
+            "conversation_throughput_rps",
+            "goodput_rps",
+            "throughput_jobs_s",
         ),
-        "effective_tok_s": float(metrics.get("effective_tok_s") or 0.0),
-        "ttft_avg_ms": float(metrics.get("ttft_avg_ms") or metrics.get("avg_ttft_ms") or 0.0),
-        "completed": float(metrics.get("completed_conversation_count") or 0.0),
-        "acceptance_rate": float(metrics.get("acceptance_rate") or 0.0),
+        "effective_tok_s": metric("effective_tok_s"),
+        "ttft_avg_ms": metric("ttft_avg_ms", "avg_ttft_ms"),
+        "completed": metric("completed_conversation_count"),
+        "acceptance_rate": metric("acceptance_rate"),
+        "rounds_per_request": metric("rounds_per_request_avg"),
+        "candidates_verified_per_request": metric(
+            "candidates_verified_per_request_avg"
+        ),
+        "draft_generation_ms": metric("decode_breakdown_generation_ms_avg"),
+        "target_queueing_ms": metric("decode_breakdown_queue_ms_avg"),
+        "target_verification_ms": metric("decode_breakdown_compute_ms_avg"),
+        "network_forward_ms": metric("decode_breakdown_forward_ms_avg"),
+        "network_response_ms": metric("decode_breakdown_response_ms_avg"),
     }
     out_json.parent.mkdir(parents=True, exist_ok=True)
     with out_json.open("w", encoding="utf-8") as handle:

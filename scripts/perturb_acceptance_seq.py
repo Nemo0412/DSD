@@ -113,15 +113,14 @@ def perturb_rate_bias(seq: Sequence[int], delta: float, rng: random.Random) -> L
 
 
 def perturb_burst(seq: Sequence[int], factor: float, rng: random.Random) -> List[int]:
-    """Shorten (factor<1) or extend (factor>1) contiguous accepted runs."""
+    """Shorten or extend accepted runs without shifting sequence positions."""
     bits = list(normalize_acceptance_seq(seq))
     if not bits:
         return bits
-    out: List[int] = []
+    out = bits[:]
     i = 0
     while i < len(bits):
         if bits[i] == 0:
-            out.append(0)
             i += 1
             continue
         j = i
@@ -129,28 +128,17 @@ def perturb_burst(seq: Sequence[int], factor: float, rng: random.Random) -> List
             j += 1
         run = j - i
         if factor < 1.0:
-            new_run = max(1, int(round(run * factor))) if run else 0
-            out.extend([1] * new_run)
-            # keep a reject if original run was terminated by 0
-            if j < len(bits) and bits[j] == 0:
-                out.append(0)
-                i = j + 1
-            else:
-                i = j
-        else:
+            keep = max(1, int(round(run * factor)))
+            for idx in range(i + keep, j):
+                out[idx] = 0
+        elif factor > 1.0:
             extra = max(0, int(round(run * (factor - 1.0))))
-            # randomly insert extras before the terminating reject
-            out.extend([1] * (run + extra))
-            if j < len(bits) and bits[j] == 0:
-                out.append(0)
-                i = j + 1
-            else:
-                i = j
-    # Keep roughly similar length budget by truncation/padding rejects.
-    if len(out) > len(bits):
-        out = out[: len(bits)]
-    while len(out) < len(bits):
-        out.append(0 if rng.random() < 0.5 else 1)
+            idx = j
+            while extra > 0 and idx < len(bits) and bits[idx] == 0:
+                out[idx] = 1
+                idx += 1
+                extra -= 1
+        i = j
     return out
 
 

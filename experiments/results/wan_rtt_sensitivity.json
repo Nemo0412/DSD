@@ -1,0 +1,214 @@
+{
+  "method": "full discrete-event re-simulation",
+  "config": "/Users/nemoli/Desktop/DSD/experiments/configs/acceptance_sensitivity_64.yaml",
+  "trace": "/Users/nemoli/Desktop/DSD/traces/gsm8k_trace_10s_with_acceptance.jsonl",
+  "total_nodes": 4096,
+  "draft_nodes": 3277,
+  "target_nodes": 819,
+  "rtt_semantics": "end-to-end RTT; forward and response delays are RTT/2 each",
+  "seeds": [
+    121,
+    122,
+    123
+  ],
+  "elapsed_s": 256.1661732196808,
+  "runs": [
+    {
+      "rtt_ms": 5.0,
+      "seed": 121,
+      "ttft_avg_ms": 98.61348875471236,
+      "tpot_avg_ms": 23.204772903400574,
+      "throughput_rps": 29.96534673482891,
+      "completed": 321.0
+    },
+    {
+      "rtt_ms": 5.0,
+      "seed": 122,
+      "ttft_avg_ms": 97.20349624415559,
+      "tpot_avg_ms": 23.23698934682664,
+      "throughput_rps": 30.016616475816527,
+      "completed": 321.0
+    },
+    {
+      "rtt_ms": 5.0,
+      "seed": 123,
+      "ttft_avg_ms": 96.33279966568533,
+      "tpot_avg_ms": 23.258959755122916,
+      "throughput_rps": 29.959613124605795,
+      "completed": 321.0
+    },
+    {
+      "rtt_ms": 20.0,
+      "seed": 121,
+      "ttft_avg_ms": 118.20349047198526,
+      "tpot_avg_ms": 25.671261188576064,
+      "throughput_rps": 29.087581739011444,
+      "completed": 321.0
+    },
+    {
+      "rtt_ms": 20.0,
+      "seed": 122,
+      "ttft_avg_ms": 117.94734560938477,
+      "tpot_avg_ms": 25.64796416863353,
+      "throughput_rps": 29.09505974163765,
+      "completed": 321.0
+    },
+    {
+      "rtt_ms": 20.0,
+      "seed": 123,
+      "ttft_avg_ms": 115.99567571398067,
+      "tpot_avg_ms": 25.690094617035847,
+      "throughput_rps": 29.30547981308906,
+      "completed": 321.0
+    },
+    {
+      "rtt_ms": 50.0,
+      "seed": 121,
+      "ttft_avg_ms": 176.97641899611867,
+      "tpot_avg_ms": 36.97389972323388,
+      "throughput_rps": 26.013849737603522,
+      "completed": 321.0
+    },
+    {
+      "rtt_ms": 50.0,
+      "seed": 122,
+      "ttft_avg_ms": 175.9363402946747,
+      "tpot_avg_ms": 36.95747775247751,
+      "throughput_rps": 26.070540123639564,
+      "completed": 321.0
+    },
+    {
+      "rtt_ms": 50.0,
+      "seed": 123,
+      "ttft_avg_ms": 177.23473814018837,
+      "tpot_avg_ms": 36.926680091015626,
+      "throughput_rps": 26.065291367470476,
+      "completed": 321.0
+    },
+    {
+      "rtt_ms": 100.0,
+      "seed": 121,
+      "ttft_avg_ms": 272.00235301406167,
+      "tpot_avg_ms": 55.87022206028335,
+      "throughput_rps": 21.636925460726346,
+      "completed": 321.0
+    },
+    {
+      "rtt_ms": 100.0,
+      "seed": 122,
+      "ttft_avg_ms": 270.558116494165,
+      "tpot_avg_ms": 55.84974769479358,
+      "throughput_rps": 21.76618305064537,
+      "completed": 321.0
+    },
+    {
+      "rtt_ms": 100.0,
+      "seed": 123,
+      "ttft_avg_ms": 273.50260840392383,
+      "tpot_avg_ms": 55.97174405912569,
+      "throughput_rps": 21.80580337558218,
+      "completed": 321.0
+    },
+    {
+      "rtt_ms": 150.0,
+      "seed": 121,
+      "ttft_avg_ms": 369.6997001743589,
+      "tpot_avg_ms": 76.32972130863675,
+      "throughput_rps": 20.16095915252464,
+      "completed": 321.0
+    },
+    {
+      "rtt_ms": 150.0,
+      "seed": 122,
+      "ttft_avg_ms": 368.6883013160463,
+      "tpot_avg_ms": 76.3232166469969,
+      "throughput_rps": 20.16427964923451,
+      "completed": 321.0
+    },
+    {
+      "rtt_ms": 150.0,
+      "seed": 123,
+      "ttft_avg_ms": 370.0266860407705,
+      "tpot_avg_ms": 76.350855295558,
+      "throughput_rps": 20.161982213029788,
+      "completed": 321.0
+    }
+  ],
+  "summary": [
+    {
+      "rtt_ms": 5.0,
+      "ttft_avg_ms": {
+        "mean": 97.3832615548511,
+        "std": 1.1509223932997528
+      },
+      "tpot_avg_ms": {
+        "mean": 23.233574001783378,
+        "std": 0.02725439709878348
+      },
+      "throughput_rps": {
+        "mean": 29.980525445083742,
+        "std": 0.031386947065040666
+      }
+    },
+    {
+      "rtt_ms": 20.0,
+      "ttft_avg_ms": {
+        "mean": 117.38217059845023,
+        "std": 1.2075506598707784
+      },
+      "tpot_avg_ms": {
+        "mean": 25.66977332474848,
+        "std": 0.021104596056834974
+      },
+      "throughput_rps": {
+        "mean": 29.16270709791272,
+        "std": 0.12370131882861257
+      }
+    },
+    {
+      "rtt_ms": 50.0,
+      "ttft_avg_ms": {
+        "mean": 176.7158324769939,
+        "std": 0.6873050572859241
+      },
+      "tpot_avg_ms": {
+        "mean": 36.95268585557567,
+        "std": 0.02397175679096359
+      },
+      "throughput_rps": {
+        "mean": 26.04989374290452,
+        "std": 0.03132515121965806
+      }
+    },
+    {
+      "rtt_ms": 100.0,
+      "ttft_avg_ms": {
+        "mean": 272.02102597071683,
+        "std": 1.4723347653103476
+      },
+      "tpot_avg_ms": {
+        "mean": 55.89723793806754,
+        "std": 0.06533124418607815
+      },
+      "throughput_rps": {
+        "mean": 21.736303962317965,
+        "std": 0.08831482022271932
+      }
+    },
+    {
+      "rtt_ms": 150.0,
+      "ttft_avg_ms": {
+        "mean": 369.47156251039195,
+        "std": 0.6977488897404405
+      },
+      "tpot_avg_ms": {
+        "mean": 76.33459775039722,
+        "std": 0.014450207152617021
+      },
+      "throughput_rps": {
+        "mean": 20.162407004929644,
+        "std": 0.0017005177795895506
+      }
+    }
+  ]
+}
