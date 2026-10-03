@@ -1,0 +1,974 @@
+{
+ "eagle3_N1": {
+  "config": {
+   "gamma": 4,
+   "gamma_policy": "static",
+   "draft_kind": "eagle3",
+   "rtt_ms": 10.0,
+   "per_draft_rps": 1.0,
+   "n_requests": 120,
+   "n_drafters": 1,
+   "rate_rps": 1.0,
+   "chat_template": true,
+   "no_prefix_caching": true,
+   "client_side": true,
+   "dtype": "bfloat16"
+  },
+  "system_metrics": {
+   "completed": 120,
+   "accounting_ok": true,
+   "standard": {
+    "ttft_ms": {
+     "mean": 92.30221006075541,
+     "p50": 93.75240087509155,
+     "p99": 127.68843071937562
+    },
+    "tpot_ms": {
+     "mean": 16.637934967084664,
+     "p50": 16.390598492595085,
+     "p99": 21.973917021221588
+    },
+    "e2e_ms": {
+     "mean": 2341.0067594130833,
+     "p50": 2242.853828430176,
+     "p99": 3738.5336822223667
+    },
+    "throughput_rps": 0.8220060637035329,
+    "throughput_tok_s": 117.11858009896024,
+    "steady_window_ms": 116787.45965385437,
+    "mean_acceptance_length": 3.0053367684946632
+   },
+   "sim": {
+    "ttft_ms": {
+     "mean": 125.02652045885722,
+     "p50": 125.73615407943726,
+     "p99": 185.23034971237183
+    },
+    "tpot_ms_pooled": 18.41341405213727,
+    "throughput_rps": 0.8630698607145192,
+    "observed_span_ms": 139038.57087612152,
+    "acceptance_ratio": 0.5013341921236658
+   }
+  },
+  "placement": {
+   "host": "eng-wl3181-lab-device-02.engineering.nyu.edu",
+   "target": {
+    "gpu": 0,
+    "model": "meta-llama/Llama-3.1-8B-Instruct"
+   },
+   "drafters_per_gpu": 1,
+   "tier": "T1",
+   "draft_kind": "eagle3",
+   "draft_model": "yuhuili/EAGLE3-LLaMA3.1-Instruct-8B",
+   "drafters": {
+    "d0": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:44501"
+    }
+   },
+   "gpus": "0, NVIDIA RTX A6000;1, NVIDIA RTX A6000;2, NVIDIA RTX A6000;3, NVIDIA RTX A6000;"
+  },
+  "gpu_check": "clean"
+ },
+ "eagle3_N2": {
+  "config": {
+   "gamma": 4,
+   "gamma_policy": "static",
+   "draft_kind": "eagle3",
+   "rtt_ms": 10.0,
+   "per_draft_rps": 1.0,
+   "n_requests": 240,
+   "n_drafters": 2,
+   "rate_rps": 2.0,
+   "chat_template": true,
+   "no_prefix_caching": true,
+   "client_side": true,
+   "dtype": "bfloat16"
+  },
+  "system_metrics": {
+   "completed": 240,
+   "accounting_ok": true,
+   "standard": {
+    "ttft_ms": {
+     "mean": 94.8177363038063,
+     "p50": 93.41605806350708,
+     "p99": 136.6031498813629
+    },
+    "tpot_ms": {
+     "mean": 17.797290928203722,
+     "p50": 17.594786928587354,
+     "p99": 25.578250223961724
+    },
+    "e2e_ms": {
+     "mean": 2541.951190261046,
+     "p50": 2460.0675201416016,
+     "p99": 4147.961231060027
+    },
+    "throughput_rps": 1.9561283634510875,
+    "throughput_tok_s": 257.9122728353193,
+    "steady_window_ms": 98153.06785964966,
+    "mean_acceptance_length": 2.9734679292478114
+   },
+   "sim": {
+    "ttft_ms": {
+     "mean": 128.97866563399631,
+     "p50": 122.83483600616455,
+     "p99": 226.40979039192192
+    },
+    "tpot_ms_pooled": 19.60316462829985,
+    "throughput_rps": 1.8657185845759603,
+    "observed_span_ms": 128636.76332759857,
+    "acceptance_ratio": 0.4933669823119528
+   }
+  },
+  "placement": {
+   "host": "eng-wl3181-lab-device-02.engineering.nyu.edu",
+   "target": {
+    "gpu": 0,
+    "model": "meta-llama/Llama-3.1-8B-Instruct"
+   },
+   "drafters_per_gpu": 1,
+   "tier": "T1",
+   "draft_kind": "eagle3",
+   "draft_model": "yuhuili/EAGLE3-LLaMA3.1-Instruct-8B",
+   "drafters": {
+    "d0": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:41185"
+    },
+    "d1": {
+     "gpu": 2,
+     "addr": "tcp://127.0.0.1:38231"
+    }
+   },
+   "gpus": "0, NVIDIA RTX A6000;1, NVIDIA RTX A6000;2, NVIDIA RTX A6000;3, NVIDIA RTX A6000;"
+  },
+  "gpu_check": "clean"
+ },
+ "eagle3_N4": {
+  "config": {
+   "gamma": 4,
+   "gamma_policy": "static",
+   "draft_kind": "eagle3",
+   "rtt_ms": 10.0,
+   "per_draft_rps": 1.0,
+   "n_requests": 400,
+   "n_drafters": 4,
+   "rate_rps": 4.0,
+   "chat_template": true,
+   "no_prefix_caching": true,
+   "client_side": true,
+   "dtype": "bfloat16"
+  },
+  "system_metrics": {
+   "completed": 400,
+   "accounting_ok": true,
+   "standard": {
+    "ttft_ms": {
+     "mean": 129.3031274461746,
+     "p50": 123.31839227676392,
+     "p99": 241.329416599273
+    },
+    "tpot_ms": {
+     "mean": 24.381418994426426,
+     "p50": 24.17508145917315,
+     "p99": 33.42353409653492
+    },
+    "e2e_ms": {
+     "mean": 3470.081764984131,
+     "p50": 3318.1775031089783,
+     "p99": 5796.505100545882
+    },
+    "throughput_rps": 3.7352557084857962,
+    "throughput_tok_s": 509.3809445491568,
+    "steady_window_ms": 85670.1722650528,
+    "mean_acceptance_length": 2.967253596736096
+   },
+   "sim": {
+    "ttft_ms": {
+     "mean": 172.45291184663773,
+     "p50": 162.30084466934204,
+     "p99": 364.68024045944105
+    },
+    "tpot_ms_pooled": 26.571486921970912,
+    "throughput_rps": 3.6978652961826266,
+    "observed_span_ms": 108170.51676082611,
+    "acceptance_ratio": 0.49181339918402406
+   }
+  },
+  "placement": {
+   "host": "eng-wl3181-lab-device-02.engineering.nyu.edu",
+   "target": {
+    "gpu": 0,
+    "model": "meta-llama/Llama-3.1-8B-Instruct"
+   },
+   "drafters_per_gpu": 2,
+   "tier": "T2",
+   "draft_kind": "eagle3",
+   "draft_model": "yuhuili/EAGLE3-LLaMA3.1-Instruct-8B",
+   "drafters": {
+    "d0": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:39015"
+    },
+    "d1": {
+     "gpu": 2,
+     "addr": "tcp://127.0.0.1:44897"
+    },
+    "d2": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:33215"
+    },
+    "d3": {
+     "gpu": 2,
+     "addr": "tcp://127.0.0.1:42931"
+    }
+   },
+   "gpus": "0, NVIDIA RTX A6000;1, NVIDIA RTX A6000;2, NVIDIA RTX A6000;3, NVIDIA RTX A6000;"
+  },
+  "gpu_check": "clean"
+ },
+ "eagle3_N7": {
+  "config": {
+   "gamma": 4,
+   "gamma_policy": "static",
+   "draft_kind": "eagle3",
+   "rtt_ms": 10.0,
+   "per_draft_rps": 1.0,
+   "n_requests": 400,
+   "n_drafters": 7,
+   "rate_rps": 7.0,
+   "chat_template": true,
+   "no_prefix_caching": true,
+   "client_side": true,
+   "dtype": "bfloat16"
+  },
+  "system_metrics": {
+   "completed": 400,
+   "accounting_ok": true,
+   "standard": {
+    "ttft_ms": {
+     "mean": 269.56883766174315,
+     "p50": 251.19355964660645,
+     "p99": 734.8074730110164
+    },
+    "tpot_ms": {
+     "mean": 51.016859848898115,
+     "p50": 51.70545546640052,
+     "p99": 72.1720185855215
+    },
+    "e2e_ms": {
+     "mean": 7249.882490344047,
+     "p50": 6788.883655548096,
+     "p99": 12402.174882898329
+    },
+    "throughput_rps": 5.540994260624202,
+    "throughput_tok_s": 837.6460044748994,
+    "steady_window_ms": 57751.368247032166,
+    "mean_acceptance_length": 2.9889147244903476
+   },
+   "sim": {
+    "ttft_ms": {
+     "mean": 363.94050593614577,
+     "p50": 331.8589997291565,
+     "p99": 879.0626855373382
+    },
+    "tpot_ms_pooled": 55.93315063260942,
+    "throughput_rps": 6.080914733030124,
+    "observed_span_ms": 65779.57717895508,
+    "acceptance_ratio": 0.49722868112258695
+   }
+  },
+  "placement": {
+   "host": "eng-wl3181-lab-device-02.engineering.nyu.edu",
+   "target": {
+    "gpu": 0,
+    "model": "meta-llama/Llama-3.1-8B-Instruct"
+   },
+   "drafters_per_gpu": 4,
+   "tier": "T2",
+   "draft_kind": "eagle3",
+   "draft_model": "yuhuili/EAGLE3-LLaMA3.1-Instruct-8B",
+   "drafters": {
+    "d0": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:45419"
+    },
+    "d1": {
+     "gpu": 2,
+     "addr": "tcp://127.0.0.1:38843"
+    },
+    "d2": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:34055"
+    },
+    "d3": {
+     "gpu": 2,
+     "addr": "tcp://127.0.0.1:44125"
+    },
+    "d4": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:37729"
+    },
+    "d5": {
+     "gpu": 2,
+     "addr": "tcp://127.0.0.1:33703"
+    },
+    "d6": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:36115"
+    }
+   },
+   "gpus": "0, NVIDIA RTX A6000;1, NVIDIA RTX A6000;2, NVIDIA RTX A6000;3, NVIDIA RTX A6000;"
+  },
+  "gpu_check": "clean"
+ },
+ "specpp_N1": {
+  "config": {
+   "gamma": 8,
+   "gamma_policy": "specpp",
+   "draft_kind": "lm",
+   "rtt_ms": 10.0,
+   "per_draft_rps": 1.0,
+   "n_requests": 120,
+   "n_drafters": 1,
+   "rate_rps": 1.0,
+   "chat_template": true,
+   "no_prefix_caching": true,
+   "client_side": true,
+   "dtype": "bfloat16"
+  },
+  "system_metrics": {
+   "completed": 120,
+   "accounting_ok": true,
+   "standard": {
+    "ttft_ms": {
+     "mean": 125.44540523687998,
+     "p50": 122.2745566368103,
+     "p99": 180.90920177459716
+    },
+    "tpot_ms": {
+     "mean": 18.461552093332145,
+     "p50": 17.404769453377092,
+     "p99": 32.79573120375086
+    },
+    "e2e_ms": {
+     "mean": 2636.4496731917066,
+     "p50": 2417.402573108673,
+     "p99": 5271.489187908173
+    },
+    "throughput_rps": 0.8205424748189615,
+    "throughput_tok_s": 116.83433629432831,
+    "steady_window_ms": 116995.77163410187,
+    "mean_acceptance_length": 4.274896265560166
+   },
+   "sim": {
+    "ttft_ms": {
+     "mean": 167.45706211725872,
+     "p50": 155.29509592056274,
+     "p99": 369.75725878715514
+    },
+    "tpot_ms_pooled": 19.076359823681262,
+    "throughput_rps": 0.8609752121910709,
+    "observed_span_ms": 139376.83489704132,
+    "acceptance_ratio": 0.5450856822203997
+   }
+  },
+  "placement": {
+   "host": "eng-wl3181-lab-device-02.engineering.nyu.edu",
+   "target": {
+    "gpu": 0,
+    "model": "meta-llama/Llama-3.1-8B-Instruct"
+   },
+   "drafters_per_gpu": 1,
+   "tier": "T1",
+   "draft_kind": "vllm",
+   "draft_model": "meta-llama/Llama-3.2-1B-Instruct",
+   "drafters": {
+    "d0": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:36611"
+    }
+   },
+   "gpus": "0, NVIDIA RTX A6000;1, NVIDIA RTX A6000;2, NVIDIA RTX A6000;3, NVIDIA RTX A6000;"
+  },
+  "gpu_check": "clean"
+ },
+ "specpp_N2": {
+  "config": {
+   "gamma": 8,
+   "gamma_policy": "specpp",
+   "draft_kind": "lm",
+   "rtt_ms": 10.0,
+   "per_draft_rps": 1.0,
+   "n_requests": 240,
+   "n_drafters": 2,
+   "rate_rps": 2.0,
+   "chat_template": true,
+   "no_prefix_caching": true,
+   "client_side": true,
+   "dtype": "bfloat16"
+  },
+  "system_metrics": {
+   "completed": 240,
+   "accounting_ok": true,
+   "standard": {
+    "ttft_ms": {
+     "mean": 137.80299344857534,
+     "p50": 137.43114614486694,
+     "p99": 187.65530876159661
+    },
+    "tpot_ms": {
+     "mean": 19.669415938479254,
+     "p50": 18.451477061063922,
+     "p99": 32.27770037851447
+    },
+    "e2e_ms": {
+     "mean": 2840.9457935492196,
+     "p50": 2598.2489819526672,
+     "p99": 5713.125759887695
+    },
+    "throughput_rps": 1.953413882948204,
+    "throughput_tok_s": 256.7268712359061,
+    "steady_window_ms": 98289.46219539642,
+    "mean_acceptance_length": 4.253265694356373
+   },
+   "sim": {
+    "ttft_ms": {
+     "mean": 181.00260581572851,
+     "p50": 170.67226457595825,
+     "p99": 408.8476997852318
+    },
+    "tpot_ms_pooled": 20.126344002484718,
+    "throughput_rps": 1.8571434758000263,
+    "observed_span_ms": 129230.72618103027,
+    "acceptance_ratio": 0.5501297475819769
+   }
+  },
+  "placement": {
+   "host": "eng-wl3181-lab-device-02.engineering.nyu.edu",
+   "target": {
+    "gpu": 0,
+    "model": "meta-llama/Llama-3.1-8B-Instruct"
+   },
+   "drafters_per_gpu": 1,
+   "tier": "T1",
+   "draft_kind": "vllm",
+   "draft_model": "meta-llama/Llama-3.2-1B-Instruct",
+   "drafters": {
+    "d0": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:43797"
+    },
+    "d1": {
+     "gpu": 2,
+     "addr": "tcp://127.0.0.1:36729"
+    }
+   },
+   "gpus": "0, NVIDIA RTX A6000;1, NVIDIA RTX A6000;2, NVIDIA RTX A6000;3, NVIDIA RTX A6000;"
+  },
+  "gpu_check": "clean"
+ },
+ "specpp_N4": {
+  "config": {
+   "gamma": 8,
+   "gamma_policy": "specpp",
+   "draft_kind": "lm",
+   "rtt_ms": 10.0,
+   "per_draft_rps": 1.0,
+   "n_requests": 400,
+   "n_drafters": 4,
+   "rate_rps": 4.0,
+   "chat_template": true,
+   "no_prefix_caching": true,
+   "client_side": true,
+   "dtype": "bfloat16"
+  },
+  "system_metrics": {
+   "completed": 400,
+   "accounting_ok": true,
+   "standard": {
+    "ttft_ms": {
+     "mean": 228.80479243278504,
+     "p50": 226.6544075012207,
+     "p99": 348.0811026382446
+    },
+    "tpot_ms": {
+     "mean": 33.05546787570233,
+     "p50": 30.845148138532217,
+     "p99": 55.12417058352141
+    },
+    "e2e_ms": {
+     "mean": 4765.791281182766,
+     "p50": 4595.762140274048,
+     "p99": 9466.424686555862
+    },
+    "throughput_rps": 3.5617731770740306,
+    "throughput_tok_s": 501.7418244698145,
+    "steady_window_ms": 89842.89119243622,
+    "mean_acceptance_length": 4.1917663881989915
+   },
+   "sim": {
+    "ttft_ms": {
+     "mean": 293.54846711874006,
+     "p50": 275.98315620422363,
+     "p99": 637.2442549324034
+    },
+    "tpot_ms_pooled": 33.84104540208124,
+    "throughput_rps": 3.6424088890730637,
+    "observed_span_ms": 109817.43461036682,
+    "acceptance_ratio": 0.5467543350738091
+   }
+  },
+  "placement": {
+   "host": "eng-wl3181-lab-device-02.engineering.nyu.edu",
+   "target": {
+    "gpu": 0,
+    "model": "meta-llama/Llama-3.1-8B-Instruct"
+   },
+   "drafters_per_gpu": 2,
+   "tier": "T2",
+   "draft_kind": "vllm",
+   "draft_model": "meta-llama/Llama-3.2-1B-Instruct",
+   "drafters": {
+    "d0": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:42285"
+    },
+    "d1": {
+     "gpu": 2,
+     "addr": "tcp://127.0.0.1:39893"
+    },
+    "d2": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:34541"
+    },
+    "d3": {
+     "gpu": 2,
+     "addr": "tcp://127.0.0.1:33145"
+    }
+   },
+   "gpus": "0, NVIDIA RTX A6000;1, NVIDIA RTX A6000;2, NVIDIA RTX A6000;3, NVIDIA RTX A6000;"
+  },
+  "gpu_check": "clean"
+ },
+ "specpp_N7": {
+  "config": {
+   "gamma": 8,
+   "gamma_policy": "specpp",
+   "draft_kind": "lm",
+   "rtt_ms": 10.0,
+   "per_draft_rps": 1.0,
+   "n_requests": 400,
+   "n_drafters": 7,
+   "rate_rps": 7.0,
+   "chat_template": true,
+   "no_prefix_caching": true,
+   "client_side": true,
+   "dtype": "bfloat16"
+  },
+  "system_metrics": {
+   "completed": 400,
+   "accounting_ok": true,
+   "standard": {
+    "ttft_ms": {
+     "mean": 4978.201430664062,
+     "p50": 4800.874168872833,
+     "p99": 11883.857212457657
+    },
+    "tpot_ms": {
+     "mean": 77.73699648146837,
+     "p50": 72.39571599931196,
+     "p99": 131.3495017278825
+    },
+    "e2e_ms": {
+     "mean": 15621.916015253068,
+     "p50": 15960.559055805206,
+     "p99": 28157.402527742386
+    },
+    "throughput_rps": 4.395179245279464,
+    "throughput_tok_s": 689.4570608506132,
+    "steady_window_ms": 72807.04202079773,
+    "mean_acceptance_length": 4.2332800730426845
+   },
+   "sim": {
+    "ttft_ms": {
+     "mean": 5134.919086091519,
+     "p50": 5002.00243139267,
+     "p99": 12022.330763072967
+    },
+    "tpot_ms_pooled": 79.79228975985215,
+    "throughput_rps": 5.005132928135123,
+    "observed_span_ms": 79917.95737361908,
+    "acceptance_ratio": 0.5545044104598361
+   }
+  },
+  "placement": {
+   "host": "eng-wl3181-lab-device-02.engineering.nyu.edu",
+   "target": {
+    "gpu": 0,
+    "model": "meta-llama/Llama-3.1-8B-Instruct"
+   },
+   "drafters_per_gpu": 4,
+   "tier": "T2",
+   "draft_kind": "vllm",
+   "draft_model": "meta-llama/Llama-3.2-1B-Instruct",
+   "drafters": {
+    "d0": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:38961"
+    },
+    "d1": {
+     "gpu": 2,
+     "addr": "tcp://127.0.0.1:43909"
+    },
+    "d2": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:34359"
+    },
+    "d3": {
+     "gpu": 2,
+     "addr": "tcp://127.0.0.1:40359"
+    },
+    "d4": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:33693"
+    },
+    "d5": {
+     "gpu": 2,
+     "addr": "tcp://127.0.0.1:44299"
+    },
+    "d6": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:36161"
+    }
+   },
+   "gpus": "0, NVIDIA RTX A6000;1, NVIDIA RTX A6000;2, NVIDIA RTX A6000;3, NVIDIA RTX A6000;"
+  },
+  "gpu_check": "clean"
+ },
+ "vanilla_N1": {
+  "config": {
+   "gamma": 4,
+   "gamma_policy": "static",
+   "draft_kind": "lm",
+   "rtt_ms": 10.0,
+   "per_draft_rps": 1.0,
+   "n_requests": 120,
+   "n_drafters": 1,
+   "rate_rps": 1.0,
+   "chat_template": true,
+   "no_prefix_caching": true,
+   "client_side": true,
+   "dtype": "bfloat16"
+  },
+  "system_metrics": {
+   "completed": 120,
+   "accounting_ok": true,
+   "standard": {
+    "ttft_ms": {
+     "mean": 100.7603360970815,
+     "p50": 98.76564121246338,
+     "p99": 140.42082649230957
+    },
+    "tpot_ms": {
+     "mean": 17.36852948526954,
+     "p50": 17.045168176060756,
+     "p99": 25.318784635603436
+    },
+    "e2e_ms": {
+     "mean": 2450.7837950785956,
+     "p50": 2332.3899912834167,
+     "p99": 4067.7495477294924
+    },
+    "throughput_rps": 0.822658549096182,
+    "throughput_tok_s": 116.64923748092352,
+    "steady_window_ms": 116694.83056545258,
+    "mean_acceptance_length": 3.5412070084360803
+   },
+   "sim": {
+    "ttft_ms": {
+     "mean": 138.18377250035604,
+     "p50": 130.59807586669922,
+     "p99": 294.6406755828859
+    },
+    "tpot_ms_pooled": 19.44345972706032,
+    "throughput_rps": 0.8596111826155012,
+    "observed_span_ms": 139597.9978237152,
+    "acceptance_ratio": 0.6401482127288579
+   }
+  },
+  "placement": {
+   "host": "eng-wl3181-lab-device-02.engineering.nyu.edu",
+   "target": {
+    "gpu": 0,
+    "model": "meta-llama/Llama-3.1-8B-Instruct"
+   },
+   "drafters_per_gpu": 1,
+   "tier": "T1",
+   "draft_kind": "vllm",
+   "draft_model": "meta-llama/Llama-3.2-1B-Instruct",
+   "drafters": {
+    "d0": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:36459"
+    }
+   },
+   "gpus": "0, NVIDIA RTX A6000;1, NVIDIA RTX A6000;2, NVIDIA RTX A6000;3, NVIDIA RTX A6000;"
+  },
+  "gpu_check": "clean"
+ },
+ "vanilla_N2": {
+  "config": {
+   "gamma": 4,
+   "gamma_policy": "static",
+   "draft_kind": "lm",
+   "rtt_ms": 10.0,
+   "per_draft_rps": 1.0,
+   "n_requests": 240,
+   "n_drafters": 2,
+   "rate_rps": 2.0,
+   "chat_template": true,
+   "no_prefix_caching": true,
+   "client_side": true,
+   "dtype": "bfloat16"
+  },
+  "system_metrics": {
+   "completed": 240,
+   "accounting_ok": true,
+   "standard": {
+    "ttft_ms": {
+     "mean": 108.14979714552561,
+     "p50": 106.15129280090332,
+     "p99": 154.05653553962702
+    },
+    "tpot_ms": {
+     "mean": 18.28415764134149,
+     "p50": 17.742913080569434,
+     "p99": 26.312958863110378
+    },
+    "e2e_ms": {
+     "mean": 2610.5153952121736,
+     "p50": 2529.4267258644104,
+     "p99": 4404.4571091556545
+    },
+    "throughput_rps": 1.9496537160328535,
+    "throughput_tok_s": 256.44158251067574,
+    "steady_window_ms": 98479.02651691437,
+    "mean_acceptance_length": 3.5372786085480965
+   },
+   "sim": {
+    "ttft_ms": {
+     "mean": 147.98082167307535,
+     "p50": 138.69044589996338,
+     "p99": 299.33484978675835
+    },
+    "tpot_ms_pooled": 20.284160271593407,
+    "throughput_rps": 1.85507971795407,
+    "observed_span_ms": 129374.49408626556,
+    "acceptance_ratio": 0.6399186861391964
+   }
+  },
+  "placement": {
+   "host": "eng-wl3181-lab-device-02.engineering.nyu.edu",
+   "target": {
+    "gpu": 0,
+    "model": "meta-llama/Llama-3.1-8B-Instruct"
+   },
+   "drafters_per_gpu": 1,
+   "tier": "T1",
+   "draft_kind": "vllm",
+   "draft_model": "meta-llama/Llama-3.2-1B-Instruct",
+   "drafters": {
+    "d0": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:41003"
+    },
+    "d1": {
+     "gpu": 3,
+     "addr": "tcp://127.0.0.1:36513"
+    }
+   },
+   "gpus": "0, NVIDIA RTX A6000;1, NVIDIA RTX A6000;2, NVIDIA RTX A6000;3, NVIDIA RTX A6000;"
+  },
+  "gpu_check": "clean"
+ },
+ "vanilla_N4": {
+  "config": {
+   "gamma": 4,
+   "gamma_policy": "static",
+   "draft_kind": "lm",
+   "rtt_ms": 10.0,
+   "per_draft_rps": 1.0,
+   "n_requests": 400,
+   "n_drafters": 4,
+   "rate_rps": 4.0,
+   "chat_template": true,
+   "no_prefix_caching": true,
+   "client_side": true,
+   "dtype": "bfloat16"
+  },
+  "system_metrics": {
+   "completed": 400,
+   "accounting_ok": true,
+   "standard": {
+    "ttft_ms": {
+     "mean": 149.45203221321106,
+     "p50": 148.65756273269653,
+     "p99": 210.77301004409784
+    },
+    "tpot_ms": {
+     "mean": 25.355609230923907,
+     "p50": 24.620314777087557,
+     "p99": 36.600699116256045
+    },
+    "e2e_ms": {
+     "mean": 3608.9791723203657,
+     "p50": 3571.2503094673157,
+     "p99": 6079.041769781112
+    },
+    "throughput_rps": 3.7117719672755976,
+    "throughput_tok_s": 506.57626486531103,
+    "steady_window_ms": 86212.19267272949,
+    "mean_acceptance_length": 3.5472942683317323
+   },
+   "sim": {
+    "ttft_ms": {
+     "mean": 196.71071615457535,
+     "p50": 189.9530200958252,
+     "p99": 424.57677716255165
+    },
+    "tpot_ms_pooled": 28.249993779154813,
+    "throughput_rps": 3.6775046451202256,
+    "observed_span_ms": 108769.40713882446,
+    "acceptance_ratio": 0.6422942772251647
+   }
+  },
+  "placement": {
+   "host": "eng-wl3181-lab-device-02.engineering.nyu.edu",
+   "target": {
+    "gpu": 0,
+    "model": "meta-llama/Llama-3.1-8B-Instruct"
+   },
+   "drafters_per_gpu": 2,
+   "tier": "T2",
+   "draft_kind": "vllm",
+   "draft_model": "meta-llama/Llama-3.2-1B-Instruct",
+   "drafters": {
+    "d0": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:37983"
+    },
+    "d1": {
+     "gpu": 3,
+     "addr": "tcp://127.0.0.1:36657"
+    },
+    "d2": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:44111"
+    },
+    "d3": {
+     "gpu": 3,
+     "addr": "tcp://127.0.0.1:44301"
+    }
+   },
+   "gpus": "0, NVIDIA RTX A6000;1, NVIDIA RTX A6000;2, NVIDIA RTX A6000;3, NVIDIA RTX A6000;"
+  },
+  "gpu_check": "clean"
+ },
+ "vanilla_N7": {
+  "config": {
+   "gamma": 4,
+   "gamma_policy": "static",
+   "draft_kind": "lm",
+   "rtt_ms": 10.0,
+   "per_draft_rps": 1.0,
+   "n_requests": 400,
+   "n_drafters": 7,
+   "rate_rps": 7.0,
+   "chat_template": true,
+   "no_prefix_caching": true,
+   "client_side": true,
+   "dtype": "bfloat16"
+  },
+  "system_metrics": {
+   "completed": 400,
+   "accounting_ok": true,
+   "standard": {
+    "ttft_ms": {
+     "mean": 425.76077517747876,
+     "p50": 339.02898836135864,
+     "p99": 1658.1904420185087
+    },
+    "tpot_ms": {
+     "mean": 58.454320789652876,
+     "p50": 57.55862904046924,
+     "p99": 84.53655249932459
+    },
+    "e2e_ms": {
+     "mean": 8419.142802844048,
+     "p50": 8126.757375717163,
+     "p99": 14398.70718505859
+    },
+    "throughput_rps": 5.40616714271494,
+    "throughput_tok_s": 816.6563784716005,
+    "steady_window_ms": 59191.658628463745,
+    "mean_acceptance_length": 3.5411388355726165
+   },
+   "sim": {
+    "ttft_ms": {
+     "mean": 538.4473546099663,
+     "p50": 442.42157077789307,
+     "p99": 1753.5089861965178
+    },
+    "tpot_ms_pooled": 65.25233817665988,
+    "throughput_rps": 5.928539952606901,
+    "observed_span_ms": 67470.23773097992,
+    "acceptance_ratio": 0.6402101903641257
+   }
+  },
+  "placement": {
+   "host": "eng-wl3181-lab-device-02.engineering.nyu.edu",
+   "target": {
+    "gpu": 0,
+    "model": "meta-llama/Llama-3.1-8B-Instruct"
+   },
+   "drafters_per_gpu": 4,
+   "tier": "T2",
+   "draft_kind": "vllm",
+   "draft_model": "meta-llama/Llama-3.2-1B-Instruct",
+   "drafters": {
+    "d0": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:44299"
+    },
+    "d1": {
+     "gpu": 2,
+     "addr": "tcp://127.0.0.1:39935"
+    },
+    "d2": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:45455"
+    },
+    "d3": {
+     "gpu": 2,
+     "addr": "tcp://127.0.0.1:34037"
+    },
+    "d4": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:41147"
+    },
+    "d5": {
+     "gpu": 2,
+     "addr": "tcp://127.0.0.1:42995"
+    },
+    "d6": {
+     "gpu": 1,
+     "addr": "tcp://127.0.0.1:36289"
+    }
+   },
+   "gpus": "0, NVIDIA RTX A6000;1, NVIDIA RTX A6000;2, NVIDIA RTX A6000;3, NVIDIA RTX A6000;"
+  },
+  "gpu_check": "clean"
+ }
+}

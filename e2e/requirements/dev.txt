@@ -1,0 +1,4 @@
+-r base.txt
+
+pytest >= 8.0
+pytest-timeout >= 2.3    # transport tests assert on wall clock; a hang must fail, not block

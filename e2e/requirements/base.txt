@@ -1,0 +1,10 @@
+# Everything that does NOT need a GPU or vLLM.
+#
+# The transport layer, netem, replay drafter, metrics and workload code all
+# live here. tests/test_transport.py runs against this set alone -- that is
+# deliberate, and this file is what keeps it true. If a dep creeps in here
+# that drags in torch, something has leaked across the seam.
+
+msgspec >= 0.18.6
+numpy >= 1.26
+pyzmq >= 25.0.0          # Stage 3 transport; also a vLLM dep, pinned loosely to match

@@ -1,0 +1,36 @@
+# Target-side stack. Needs a supported NVIDIA GPU.
+#
+# ---------------------------------------------------------------------------
+# Platform this is pinned against (verified from vllm-project/vllm @ v0.27.1)
+# ---------------------------------------------------------------------------
+#   CUDA          13.0.3          docker/Dockerfile:25
+#   driver        >= 580          CUDA 13 minimum; CHECK nvidia-smi BEFORE RENTING
+#   Python        3.12            Dockerfile:26 (source supports 3.10-3.14)
+#   torch         2.13.0          requirements/cuda.txt
+#   arch built    7.5 8.0 8.6 8.9 9.0 10.0 11.0 12.0     Dockerfile:288
+#
+# Target GPUs for this project, both in the default build list:
+#   L40S            sm_89  (8.9)  48 GB  <- rented N:M runs
+#   RTX 5070 Ti     sm_120 (12.0) 16 GB  <- local development
+#
+# NOT supported by a modern build: V100 (sm_70). Only appears in the
+# CUDA < 12.8 branch of CMakeLists.txt:131. Do not rent V100.
+#
+# ---------------------------------------------------------------------------
+# Why the vLLM pin is exact
+# ---------------------------------------------------------------------------
+# 0.27.1 is the first version we target because 0.22.0 introduced
+# speculative_config method="custom_class" (vllm/v1/spec_decode/
+# custom_class_proposer.py), which replaces the GPUModelRunner.drafter
+# monkeypatch with an official, config-only plug point.
+#
+# The custom_class call site is byte-identical across v0.22.0 .. v0.27.1,
+# but it is marked EXPERIMENTAL by vLLM ("the proposer interface is subject
+# to breaking changes"). The NgramProposer.propose signature already changed
+# between 0.21 and 0.27 -- so pin exactly and let target/compat.py assert the
+# version loudly at import rather than discovering drift at runtime.
+
+-r base.txt
+
+vllm == 0.27.1
+torch == 2.13.0          # pulled by vllm; pinned so a stray resolve cannot move it

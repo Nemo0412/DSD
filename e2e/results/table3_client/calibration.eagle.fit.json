@@ -1,0 +1,35 @@
+{
+  "runs": [
+    "runs/table3_client_final/eagle3_N1",
+    "runs/table3_client_final/eagle3_N2",
+    "runs/table3_client_final/eagle3_N4",
+    "runs/table3_client_final/eagle3_N7"
+  ],
+  "calls": 7016,
+  "verify": {
+    "n": 6074,
+    "base": 24.262865536053464,
+    "per_seq": 0.023274790777151028,
+    "per_token": 0.11637395388575511,
+    "r2": 0.8108466118897757,
+    "abs_resid_p90_ms": 2.992790106125054,
+    "mean_ms": 27.970148089531026
+  },
+  "prefill": {
+    "n": 938,
+    "base": 29.411691542322668,
+    "per_prompt_token": 0.005005261604487154,
+    "r2": 1.7301918335821398e-06,
+    "abs_resid_p90_ms": 29.878957963146703
+  },
+  "draft_note": "gamma constant in this run: base fixed at 0",
+  "draft": {
+    "n": 7016,
+    "base": 0.0,
+    "per_token": 2.1751886823874838,
+    "per_token_per_seq": 0.15850257224472725,
+    "r2": 0.3149557117151631,
+    "abs_resid_p90_ms": 4.355779378778774,
+    "mean_ms": 12.923845213422702
+  }
+}

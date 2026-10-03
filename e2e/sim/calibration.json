@@ -1,0 +1,51 @@
+{
+  "_status": "PLACEHOLDER -- every number below is a guess, not a measurement. Replace with values measured on the real setup (see sim/README.md, 'Calibrating').",
+  "_units": "milliseconds",
+  "target": {
+    "_what": "Llama-3.1-8B-Instruct bf16 on 1x RTX A6000 (vLLM, max_num_seqs 64)",
+    "prefill_base_ms": 20.0,
+    "prefill_ms_per_token": 0.15,
+    "verify_base_ms": 25.0,
+    "verify_ms_per_seq": 0.0,
+    "verify_ms_per_token": 0.10,
+    "verify_ms_per_ctx_token": 0.0,
+    "mixed_batch_combine": "max",
+    "_notes": [
+      "prefill batch  = prefill_base_ms + prefill_ms_per_token * sum(prompt tokens in the batch)",
+      "verify batch   = verify_base_ms + verify_ms_per_seq * B + verify_ms_per_token * sum(gamma_i + 1) + verify_ms_per_ctx_token * sum(context_i)",
+      "  placeholder: B=1,gamma=4 -> 25.5 ms; B=64,gamma=4 -> 57 ms",
+      "mixed_batch_combine: 'max' = dsdSim's native rule for a batch holding both prefill and verify jobs (latency = max of the two parts); 'sum' = additive (closer to one vLLM step that runs both)"
+    ]
+  },
+  "draft": {
+    "vanilla": {
+      "_what": "Llama-3.2-1B-Instruct, own GPU per drafter",
+      "base_ms": 0.0,
+      "ms_per_token": 6.0,
+      "ms_per_token_per_seq": 0.0
+    },
+    "specpp": {
+      "_what": "same drafter as vanilla",
+      "base_ms": 0.0,
+      "ms_per_token": 6.0,
+      "ms_per_token_per_seq": 0.0
+    },
+    "eagle": {
+      "_what": "EAGLE3 head (1 decoder layer) fed target hidden states",
+      "base_ms": 0.0,
+      "ms_per_token": 2.5,
+      "ms_per_token_per_seq": 0.0
+    },
+    "_notes": [
+      "draft round = base_ms + ms_per_token * gamma (+ ms_per_token_per_seq * gamma * (seqs on the same drafter - 1), lockstep mode only)",
+      "in async mode dsdSim gives every request its own drafter device, so there is no drafter-side batching/contention"
+    ]
+  },
+  "scheduling": {
+    "target_batch_window_ms": 0.01,
+    "scheduler_max_wait_ms": 0.0,
+    "_notes": [
+      "dsdSim batches by waiting up to a window after the first queued job; vLLM continuous batching never waits, so the window is set to ~0 (must be >0 or the target serves one job per batch)"
+    ]
+  }
+}

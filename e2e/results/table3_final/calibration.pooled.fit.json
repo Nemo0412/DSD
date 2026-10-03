@@ -1,0 +1,38 @@
+{
+  "runs": [
+    "runs/table3_final/vanilla_N1",
+    "runs/table3_final/vanilla_N2",
+    "runs/table3_final/vanilla_N4",
+    "runs/table3_final/vanilla_N7",
+    "runs/table3_final/specpp_N1",
+    "runs/table3_final/specpp_N2",
+    "runs/table3_final/specpp_N4",
+    "runs/table3_final/specpp_N7"
+  ],
+  "calls": 10165,
+  "verify": {
+    "n": 8386,
+    "base": 23.55601820811049,
+    "per_seq": 0.1684460342950112,
+    "per_token": 0.08443985193713774,
+    "r2": 0.8026484822699607,
+    "abs_resid_p90_ms": 3.068694278365353,
+    "mean_ms": 27.486477716083378
+  },
+  "prefill": {
+    "n": 1771,
+    "base": 23.84077145884342,
+    "per_prompt_token": 0.03737720887928607,
+    "r2": 0.00015985033802368154,
+    "abs_resid_p90_ms": 26.667675473686522
+  },
+  "draft": {
+    "n": 10165,
+    "base": 11.315984222375015,
+    "per_token": 3.199491218548915,
+    "per_token_per_seq": 0.25027283449653215,
+    "r2": 0.8352094726314814,
+    "abs_resid_p90_ms": 14.447977877771088,
+    "mean_ms": 39.37557284146239
+  }
+}
