@@ -3,7 +3,12 @@
 
 # Ignore Python bytecode
 *.pyc
+*.py[cod]
 __pycache__/
+*.egg-info/
+.pytest_cache/
+.venv/
+.venv-gpu/
 
 # Ignore large vendored dependencies and output directories
 src/vidur/
@@ -11,3 +16,14 @@ src/thirdparty/
 src/ddsketch/
 src/scripts_output/
 src/data/
+
+# Run artifacts: keep structured results, drop logs and scratch markers.
+runs/*
+!runs/stage0_probes.json
+
+# Placeholder-calibrated sim sweeps (sim/run_sweep.py default output); the
+# measured comparison lives in results/table3_final/.
+sim/results/
+
+# dsdSim clone + its venv for sim/ (scripts/final_compare.sh)
+.sim/
