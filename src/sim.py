@@ -2571,13 +2571,22 @@ class DraftServer:
 
         tokens_generated = 0
         tokens_accepted = 0
+        output_tokens = 0
         current_context_len = prompt_length
         conversation_tpot_samples: List[float] = []
         ttft_pending = True
         first_token_time_ms = None
         conversation_completed = False
+        max_rounds = max(answer_length * 2, 1)
+        round_num = 0
 
-        while tokens_accepted < answer_length and not conversation_completed:
+        # Real EAGLE / tree spec-dec: draft a tree, verify it in one target
+        # forward, take the longest accepted path, always emit the bonus /
+        # correction token, then start the next tree. A 0-accept path must
+        # not end the conversation (the previous loop did that).
+        while output_tokens < answer_length and round_num < max_rounds:
+            round_num += 1
+            round_start = self.env.now
             beam_current = beam_width
             max_depth_current = max_depth
             pending_tokens = target_server.pending_decode_tokens() if target_server is not None else 0
@@ -2605,23 +2614,33 @@ class DraftServer:
                     beam_current = max(min_beam_width, int(round(min_beam_width + (beam_width - min_beam_width) * beam_ratio)))
                 else:
                     beam_current = beam_width
-            tokens_remaining = answer_length - tokens_accepted
+            tokens_remaining = answer_length - output_tokens
             branch_depth = min(max_depth_current, tokens_remaining)
             if branch_depth < min_depth:
                 branch_depth = tokens_remaining
+            if branch_depth < 1:
+                break
+
+            # Depth-major tree expand: one draft step builds the tree. The
+            # target forward then scores every node (official EAGLE
+            # tree_decoding), not only the longest path. Acceptance below
+            # still returns that path; total_tokens is the forward width.
+            total_tokens = max(1, int(self._get_eagle_param("total_tokens", branch_depth)))
+            tree_nodes = max(branch_depth, total_tokens)
+            if fused_mode:
+                generation_latency = 0.0
+            else:
+                generation_latency = self._predict_generation_latency(branch_depth, current_context_len)
+            if generation_latency > 0:
+                yield self.env.timeout(generation_latency)
+            decode_breakdown["generation_ms"] += generation_latency
+            if ttft_pending:
+                ttft_breakdown["decode_generation_ms"] += generation_latency
 
             raw_candidates: List[BranchCandidate] = []
             candidates: List[BranchCandidate] = []
-            generation_latency_total = 0.0
             pruned_candidates = 0
             for idx in range(beam_current):
-                if fused_mode:
-                    generation_latency = 0.0
-                else:
-                    generation_latency = self._predict_generation_latency(branch_depth, current_context_len)
-                if generation_latency > 0:
-                    yield self.env.timeout(generation_latency)
-                generation_latency_total += generation_latency
                 score = self._estimate_branch_score(branch_depth, conn, current_context_len)
                 branch = BranchCandidate(idx, branch_depth, score)
                 raw_candidates.append(branch)
@@ -2639,7 +2658,6 @@ class DraftServer:
                         f"[{self.env.now:.1f}ms] Draft {self.id}: pruning removed all candidates, using fallback branch (score={fallback.score:.4f})",
                         flush=True,
                     )
-            decode_breakdown["generation_ms"] += generation_latency_total
             candidates.sort(key=lambda c: c.score, reverse=True)
             if (self.cfg.verbose or self.cfg.debug) and pruned_candidates > 0:
                 print(
@@ -2647,117 +2665,145 @@ class DraftServer:
                     flush=True,
                 )
 
-            branch_selected = False
-            for candidate in candidates:
-                branch_start = self.env.now
-                job = Job(
-                    jid=self.chunks_sent,
-                    created_ms=self.env.now,
-                    draft_id=self.id,
-                    job_type="decode",
-                    token_count=candidate.depth,
-                    completion_event=self.env.event(),
-                    rtt_start_ms=branch_start,
-                    request_id=conversation_id,
-                    context_len=prompt_length + tokens_generated + candidate.depth,
-                    target_id=target_id,
-                    priority_class=priority_class,
-                    phase="decode",
-                    is_fused=fused_mode,
-                )
-                self.chunks_sent += 1
-
-                if self.scheduler is None:
-                    target = self._target_lookup.get(target_id)
-                    if target is None:
-                        print(f"Warning: Target {target_id} not found for draft {self.id}", flush=True)
-                        conversation_completed = True
-                        break
-                    if fused_mode:
-                        wait_event = target.fused_execute(job)
-                    else:
-                        target.enqueue(job)
-                        wait_event = job.completion_event
-                else:
-                    wait_event = self.scheduler.submit_job(job)
-
-                if not fused_mode:
-                    fwd_start = self.env.now
-                    yield self._network_transfer(
-                        self.id,
-                        target_id,
-                        conn.forward_latency_ms,
-                        payload_bytes=self._estimate_payload_bytes(candidate.depth, self._decode_overhead_bytes),
-                        link_key=conn.network_forward_key,
-                    )
-                    forward_elapsed = self.env.now - fwd_start
-                else:
-                    forward_elapsed = 0.0
-                decode_breakdown["forward_ms"] += forward_elapsed
-                if ttft_pending:
-                    ttft_breakdown["decode_forward_ms"] += forward_elapsed
-
-                yield wait_event
-
-                queue_elapsed = 0.0
-                compute_elapsed = 0.0
-                if job.started_ms is not None and job.created_ms is not None:
-                    queue_elapsed = max(0.0, job.started_ms - job.created_ms)
-                if job.finished_ms is not None and job.started_ms is not None:
-                    compute_elapsed = max(0.0, job.finished_ms - job.started_ms)
-                decode_breakdown["queue_ms"] += queue_elapsed
-                decode_breakdown["compute_ms"] += compute_elapsed
-                if ttft_pending:
-                    ttft_breakdown["decode_queue_ms"] += queue_elapsed
-                    ttft_breakdown["decode_compute_ms"] += compute_elapsed
-
-                if not fused_mode:
-                    rsp_start = self.env.now
-                    yield self._network_transfer(
-                        target_id,
-                        self.id,
-                        conn.response_latency_ms,
-                        payload_bytes=self._estimate_payload_bytes(candidate.depth, self._response_overhead_bytes),
-                        link_key=conn.network_response_key,
-                    )
-                    response_elapsed = self.env.now - rsp_start
-                else:
-                    response_elapsed = 0.0
-                decode_breakdown["response_ms"] += response_elapsed
-                if ttft_pending:
-                    ttft_breakdown["decode_response_ms"] += response_elapsed
-
-                result = self._simulate_verification(
-                    candidate.depth,
+            cursor = getattr(self, "_active_acceptance_cursor", None)
+            if cursor is not None and cursor.has_data():
+                chosen = self._simulate_verification(
+                    branch_depth,
                     conn,
-                    prompt_length + tokens_generated + candidate.depth,
-                    acceptance_cursor=getattr(self, "_active_acceptance_cursor", None),
+                    current_context_len + branch_depth,
+                    acceptance_cursor=cursor,
                 )
-                self.total_tokens_accepted += result.accepted_tokens
-                self.total_tokens_rejected += result.rejected_tokens
-                if hasattr(self.metrics, 'token_metrics'):
-                    tm = self.metrics.token_metrics
-                    tm.total_generated_tokens += candidate.depth
-                    tm.total_accepted_tokens += result.accepted_tokens
-                    tm.total_rejected_tokens += result.rejected_tokens
+            else:
+                chosen = None
+                for candidate in candidates:
+                    result = self._simulate_verification(
+                        candidate.depth,
+                        conn,
+                        current_context_len + candidate.depth,
+                    )
+                    if chosen is None or result.accepted_tokens > chosen.accepted_tokens:
+                        chosen = result
+                if chosen is None:
+                    chosen = VerifyResult(
+                        chunk_id=self.chunks_sent,
+                        accepted_tokens=0,
+                        rejected_tokens=branch_depth,
+                        total_tokens=branch_depth,
+                    )
 
-                rtt = self.env.now - branch_start
-                self.total_round_trip_time += rtt
-                if result.accepted_tokens > 0:
-                    per_token = rtt / result.accepted_tokens
-                    conversation_tpot_samples.extend([per_token] * result.accepted_tokens)
-                    if first_token_time_ms is None:
-                        first_token_time_ms = self.env.now
-                        ttft_pending = False
-                    tokens_accepted += result.accepted_tokens
-                    current_context_len += result.accepted_tokens
-                    branch_selected = True
+            job = Job(
+                jid=self.chunks_sent,
+                created_ms=self.env.now,
+                draft_id=self.id,
+                job_type="decode",
+                # Target verifies the whole tree in one forward.
+                token_count=tree_nodes,
+                completion_event=self.env.event(),
+                rtt_start_ms=round_start,
+                request_id=conversation_id,
+                context_len=current_context_len + tree_nodes,
+                target_id=target_id,
+                priority_class=priority_class,
+                phase="decode",
+                # Draft latency stays on the path depth the calibration was
+                # fit with. Qwen's measured draft time is already the full
+                # tree (ms_per_token = 0). Scaling it by tree_nodes would
+                # bill the head once per node.
+                gamma_override=branch_depth,
+                is_fused=fused_mode,
+            )
+            self.chunks_sent += 1
+
+            if self.scheduler is None:
+                target = self._target_lookup.get(target_id)
+                if target is None:
+                    print(f"Warning: Target {target_id} not found for draft {self.id}", flush=True)
                     break
+                if fused_mode:
+                    wait_event = target.fused_execute(job)
                 else:
-                    conversation_completed = True
+                    target.enqueue(job)
+                    wait_event = job.completion_event
+            else:
+                wait_event = self.scheduler.submit_job(job)
 
-            if not branch_selected and not conversation_completed:
+            if not fused_mode:
+                fwd_start = self.env.now
+                yield self._network_transfer(
+                    self.id,
+                    target_id,
+                    conn.forward_latency_ms,
+                    payload_bytes=self._estimate_payload_bytes(tree_nodes, self._decode_overhead_bytes),
+                    link_key=conn.network_forward_key,
+                )
+                forward_elapsed = self.env.now - fwd_start
+            else:
+                forward_elapsed = 0.0
+            decode_breakdown["forward_ms"] += forward_elapsed
+            if ttft_pending:
+                ttft_breakdown["decode_forward_ms"] += forward_elapsed
+
+            yield wait_event
+
+            queue_elapsed = 0.0
+            compute_elapsed = 0.0
+            if job.started_ms is not None and job.created_ms is not None:
+                queue_elapsed = max(0.0, job.started_ms - job.created_ms)
+            if job.finished_ms is not None and job.started_ms is not None:
+                compute_elapsed = max(0.0, job.finished_ms - job.started_ms)
+            decode_breakdown["queue_ms"] += queue_elapsed
+            decode_breakdown["compute_ms"] += compute_elapsed
+            if ttft_pending:
+                ttft_breakdown["decode_queue_ms"] += queue_elapsed
+                ttft_breakdown["decode_compute_ms"] += compute_elapsed
+
+            if not fused_mode:
+                rsp_start = self.env.now
+                yield self._network_transfer(
+                    target_id,
+                    self.id,
+                    conn.response_latency_ms,
+                    payload_bytes=self._estimate_payload_bytes(tree_nodes, self._response_overhead_bytes),
+                    link_key=conn.network_response_key,
+                )
+                response_elapsed = self.env.now - rsp_start
+            else:
+                response_elapsed = 0.0
+            decode_breakdown["response_ms"] += response_elapsed
+            if ttft_pending:
+                ttft_breakdown["decode_response_ms"] += response_elapsed
+
+            job.accepted_tokens = chosen.accepted_tokens
+            job.rtt_end_ms = self.env.now
+            self.total_tokens_accepted += chosen.accepted_tokens
+            self.total_tokens_rejected += chosen.rejected_tokens
+            tokens_accepted += chosen.accepted_tokens
+            # EAGLE always commits the accepted draft path plus one bonus token
+            # (utils.update_inference_inputs appends accept_length + 1).
+            output_advance = min(tokens_remaining, chosen.accepted_tokens + 1)
+            output_tokens += output_advance
+            current_context_len += output_advance
+
+            rtt = self.env.now - round_start
+            self.total_round_trip_time += rtt
+            if hasattr(self.metrics, "token_metrics"):
+                tm = self.metrics.token_metrics
+                tm.total_generated_tokens += tree_nodes
+                tm.total_accepted_tokens += chosen.accepted_tokens
+                tm.total_rejected_tokens += chosen.rejected_tokens
+                if hasattr(tm, "total_output_tokens"):
+                    tm.total_output_tokens += output_advance
+
+            if output_advance > 0:
+                per_token = rtt / output_advance
+                conversation_tpot_samples.extend([per_token] * output_advance)
+                if first_token_time_ms is None:
+                    first_token_time_ms = self.env.now
+                    ttft_pending = False
+
+            if output_tokens >= answer_length:
                 conversation_completed = True
+                break
 
         conversation_time = self.env.now - conversation_start
         acceptance_ratio = (

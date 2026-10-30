@@ -60,7 +60,64 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--dtype", default="float16", choices=["float16", "bfloat16"])
     p.add_argument("--use-eagle3", action="store_true")
     p.add_argument("--limit", type=int, default=None)
+    p.add_argument("--id-prefix", default="eagle")
+    p.add_argument("--base-device", default=None,
+                   help="cuda index for the base model; with --draft-device, splits the tree across two GPUs")
+    p.add_argument("--draft-device", default=None,
+                   help="cuda index for the EAGLE head")
     return p.parse_args()
+
+
+def _take_comm_ms(model) -> float:
+    stats = getattr(model, "_split_stats", None)
+    if not stats:
+        return 0.0
+    return float(stats.get("comm_ms", 0.0))
+
+
+def split_base_and_head(model, draft_device: str):
+    """Keep the base model on its device and run the EAGLE head on another GPU.
+
+    topK_genrate then moves the hidden states to the head and the finished
+    tree (tokens, mask, positions) back to the base. That copy time is comm.
+    """
+    draft = torch.device(draft_device if str(draft_device).startswith("cuda") else f"cuda:{draft_device}")
+    model.ea_layer.to(draft)
+    model.ea_layer.init_tree()
+    orig = model.ea_layer.topK_genrate
+    stats = {"comm_ms": 0.0, "to_draft_ms": 0.0, "to_target_ms": 0.0}
+
+    def wrapped(hidden_states, input_ids, head, logits_processor):
+        base = hidden_states.device
+        torch.cuda.synchronize()
+        t0 = time.perf_counter()
+        if hidden_states.device != draft:
+            hidden_states = hidden_states.to(draft)
+        if input_ids.device != draft:
+            input_ids = input_ids.to(draft)
+        torch.cuda.synchronize()
+        to_draft = (time.perf_counter() - t0) * 1000.0
+        out = orig(hidden_states, input_ids, head, logits_processor)
+        torch.cuda.synchronize()
+        t1 = time.perf_counter()
+        moved = []
+        for item in out:
+            if torch.is_tensor(item):
+                moved.append(item.to(base))
+            else:
+                moved.append(item)
+        torch.cuda.synchronize()
+        to_target = (time.perf_counter() - t1) * 1000.0
+        stats["to_draft_ms"] = to_draft
+        stats["to_target_ms"] = to_target
+        stats["comm_ms"] = to_draft + to_target
+        return tuple(moved)
+
+    model.ea_layer.topK_genrate = wrapped
+    model._split_stats = stats
+    base_dev = next(model.base_model.parameters()).device
+    print(f"split base={base_dev} head={draft}", flush=True)
+    return stats
 
 
 def load_prompts(path: Path, limit: Optional[int]) -> List[str]:
@@ -146,7 +203,10 @@ def profile_one(
     draft_tokens, retrieve_indices, tree_mask, tree_position_ids, logits, hidden_state, sample_token = initialize_tree(
         input_ids, model, past_key_values, logits_processor
     )
+    torch.cuda.synchronize()
     draft_ms = (time.perf_counter() - t0) * 1000.0
+    comm_ms = _take_comm_ms(model)
+    draft_ms = max(0.0, draft_ms - comm_ms)
 
     for round_idx in range(hard_max):
         model.base_model.model.tree_mask = tree_mask
@@ -165,6 +225,7 @@ def profile_one(
         torch.cuda.synchronize()
         verify_ms = (time.perf_counter() - tv0) * 1000.0
 
+        tree_nodes = int(draft_tokens.shape[-1])
         draft_tokens = torch.cat((draft_tokens, padding), dim=1)
         candidates = draft_tokens[0, retrieve_indices]
         n_candidates = int(candidates.shape[0])
@@ -191,6 +252,8 @@ def profile_one(
                 "accepted_branch": accepted_branch[: max(accept_len, 1)],
                 "draft_generation_ms": round(draft_ms, 3),
                 "target_verification_ms": round(verify_ms, 3),
+                "comm_ms": round(comm_ms, 3),
+                "tree_nodes": tree_nodes,
             }
         )
 
@@ -212,6 +275,8 @@ def profile_one(
         )
         torch.cuda.synchronize()
         draft_ms = (time.perf_counter() - td0) * 1000.0
+        comm_ms = _take_comm_ms(model)
+        draft_ms = max(0.0, draft_ms - comm_ms)
 
         if tokenizer.eos_token_id is not None and tokenizer.eos_token_id in input_ids[0, prompt_len:].tolist():
             break
@@ -251,9 +316,14 @@ def main() -> None:
         threshold=args.threshold,
         torch_dtype=dtype,
         low_cpu_mem_usage=True,
-        device_map="auto",
+        device_map={"": int(args.base_device)} if args.base_device is not None else "auto",
+        # SDPA drops a custom tree mask and then every branch verifies as a
+        # flat sequence, so the accepted path length collapses to 0.
+        attn_implementation="eager",
     )
     model.eval()
+    if args.draft_device is not None:
+        split_base_and_head(model, args.draft_device)
     print("Model ready", flush=True)
 
     args.output_jsonl.parent.mkdir(parents=True, exist_ok=True)
@@ -271,7 +341,7 @@ def main() -> None:
                 max_prompt_tokens=args.max_prompt_tokens,
             )
             row = {
-                "request_id": f"eagle_gsm8k_{i:04d}",
+                "request_id": f"{args.id_prefix}_{i:04d}",
                 "arrival_ms": float(i * 25.0),
                 "prompt_tokens": result["prompt_tokens"],
                 "target_tokens": max(1, result["target_tokens"]),

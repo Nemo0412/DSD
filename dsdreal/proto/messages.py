@@ -32,6 +32,10 @@ class SpeculateRequest(msgspec.Struct, omit_defaults=True):
     hidden_states: bytes | None = None
     hidden_dim: int = 0
     hidden_dtype: str = ""
+    # EAGLE tree: full input ids for this topK call, and the hidden tensor
+    # shape (usually [1, seq, hidden]). Empty shape means [1, n, hidden_dim].
+    token_ids: list[int] = []
+    hidden_shape: list[int] = []
 
 
 class SpeculateReply(msgspec.Struct, omit_defaults=True):
@@ -39,6 +43,15 @@ class SpeculateReply(msgspec.Struct, omit_defaults=True):
 
     seq_id: str
     draft_tokens: list[int] = []
+    # EAGLE tree proposal. Empty when the drafter returned a chain.
+    # tree_mask is row-major `tree_mask_dtype` with `tree_mask_shape`.
+    # retrieve_indices is row-major int64 with `retrieve_shape`.
+    tree_mask: bytes | None = None
+    tree_mask_shape: list[int] = []
+    tree_mask_dtype: str = ""
+    tree_position_ids: list[int] = []
+    retrieve_indices: list[int] = []
+    retrieve_shape: list[int] = []
     # Drafter-side compute, measured by the drafter itself.
     draft_ms: float = 0.0
     # Filled in client-side by the transport; never crosses the wire.

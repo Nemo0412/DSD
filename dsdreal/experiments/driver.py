@@ -129,6 +129,8 @@ def add_target_args(ap: argparse.ArgumentParser) -> None:
     ap.add_argument("--draft-timeout-s", type=float, default=30.0)
     ap.add_argument("--no-prefix-caching", action="store_true",
                     help="disable the target's prefix cache (always off with --draft-kind eagle3)")
+    ap.add_argument("--batching", choices=("fifo", "lab"), default="fifo",
+                    help="fifo: vLLM FCFS waiting queue; lab: length-bucket admission")
 
 
 def add_workload_args(ap: argparse.ArgumentParser) -> None:
@@ -238,12 +240,16 @@ def build_target(args, error: Callable[[str], None]) -> Target:
     # aux hidden states are never produced and a remote EAGLE3 head would be
     # missing features for them (hidden_states.py refuses that combination).
     prefix_caching = not (args.no_prefix_caching or args.draft_kind == "eagle3")
+    sched = {}
+    if getattr(args, "batching", "fifo") == "lab":
+        sched["scheduler_cls"] = "dsdreal.target.scheduler_lab.LABScheduler"
     engine = LLMEngine.from_engine_args(EngineArgs(
         model=args.target_model, dtype=args.dtype, enforce_eager=True,
         enable_prefix_caching=prefix_caching,
         gpu_memory_utilization=args.gpu_frac, max_model_len=args.max_model_len,
         max_num_seqs=args.max_num_seqs, disable_log_stats=not args.native_eagle3, seed=args.seed,
         speculative_config=spec_cfg,
+        **sched,
     ))
 
     def make_params(w):

@@ -87,28 +87,37 @@ class TargetServer:
                 self._done_ident = ident
                 done = True
 
-    def serve(self) -> None:
-        done = False
-        while not done or self.engine.has_unfinished_requests():
-            if self.engine.has_unfinished_requests():
-                done = self._handle(0) or done
-                outs = self.engine.step()
-                ts = now_ms()
-                for o in outs:
-                    rec = self.records[o.request_id]
-                    toks = o.outputs[0].token_ids
-                    if len(toks) > rec.output_len:
-                        rec.token_ts_ms.extend([ts] * (len(toks) - rec.output_len))
-                        rec.output_token_ids = list(toks)
-                    if o.finished and rec.finish_ms is None:
-                        rec.finish_ms = ts
-                self._publish_depth()
-            else:
-                done = self._handle(50) or done
-        self.sock.send_multipart([self._done_ident, DONE, self._enc.encode({
-            "requests": [dataclasses.asdict(r) for r in self.records.values()],
-            "rounds": [dataclasses.asdict(r) for r in self.rounds],
-        })])
+    def serve(self, reuse: bool = False) -> None:
+        """Answer DONE with this dataset's records. With reuse, stay bound
+        so the next dataset can ADD against the same engine."""
+        while True:
+            done = False
+            while not done or self.engine.has_unfinished_requests():
+                if self.engine.has_unfinished_requests():
+                    done = self._handle(0) or done
+                    outs = self.engine.step()
+                    ts = now_ms()
+                    for o in outs:
+                        rec = self.records[o.request_id]
+                        toks = o.outputs[0].token_ids
+                        if len(toks) > rec.output_len:
+                            rec.token_ts_ms.extend([ts] * (len(toks) - rec.output_len))
+                            rec.output_token_ids = list(toks)
+                        if o.finished and rec.finish_ms is None:
+                            rec.finish_ms = ts
+                    self._publish_depth()
+                else:
+                    done = self._handle(50) or done
+            self.sock.send_multipart([self._done_ident, DONE, self._enc.encode({
+                "requests": [dataclasses.asdict(r) for r in self.records.values()],
+                "rounds": [dataclasses.asdict(r) for r in self.rounds],
+            })])
+            if not reuse:
+                break
+            self.records.clear()
+            self.rounds.clear()
+            self._adds = 0
+            self._peers.clear()
         # let the reply flush before the socket goes away
         time.sleep(0.2)
         self.sock.close(linger=1000)
@@ -125,6 +134,8 @@ def main(argv: list[str] | None = None) -> int:
     add_target_args(ap)
     ap.add_argument("--bind", required=True)
     ap.add_argument("--ready-file", default=None)
+    ap.add_argument("--reuse", action="store_true",
+                    help="stay up after DONE so another dataset can use this engine")
     args = ap.parse_args(argv)
     setup_env()
     target = build_target(args, ap.error)
@@ -134,7 +145,7 @@ def main(argv: list[str] | None = None) -> int:
         with open(args.ready_file, "w") as fh:
             fh.write(server.bound_addr)
     print(f"target serving on {server.bound_addr}", flush=True)
-    server.serve()
+    server.serve(reuse=args.reuse)
     target.close()
     return 0
 

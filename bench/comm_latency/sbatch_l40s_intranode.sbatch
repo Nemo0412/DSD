@@ -1,0 +1,14 @@
+#!/bin/bash
+#SBATCH --job-name=lat-l40s
+#SBATCH --account=torch_pr_111_general
+#SBATCH --partition=l40s_public
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=32G
+#SBATCH --gres=gpu:l40s:2
+#SBATCH --time=00:25:00
+#SBATCH --output=/home/ll5914/DSD-MLsys2027/logs/%x-%j.out
+#SBATCH --error=/home/ll5914/DSD-MLsys2027/logs/%x-%j.err
+
+bash /home/ll5914/DSD-MLsys2027/bench/comm_latency/run_intranode.sh l40s

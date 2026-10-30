@@ -70,11 +70,15 @@ def main() -> int:
     ap.add_argument("--dtype", default="float32",
                      help="float32 for the lossless gates; bfloat16 for timing runs")
     ap.add_argument("--max-model-len", type=int, default=1024)
-    ap.add_argument("--kind", choices=("vllm", "eagle3"), default="vllm",
+    ap.add_argument("--kind", choices=("vllm", "eagle3", "eagle_tree"), default="vllm",
                      help="vllm: an independent draft LM (--model); eagle3: a remote EAGLE3 "
-                          "head (--model = head checkpoint) fed the target's hidden states")
+                          "chain head; eagle_tree: remote EAGLE topK_genrate "
+                          "(--model = head checkpoint)")
     ap.add_argument("--eagle-target-model", default=os.environ.get("DSD_TARGET_MODEL"),
-                     help="eagle3: target checkpoint whose embed_tokens the head shares")
+                     help="eagle3/eagle_tree: base checkpoint whose embed_tokens the head shares")
+    ap.add_argument("--tree-total-token", type=int, default=60)
+    ap.add_argument("--tree-depth", type=int, default=5)
+    ap.add_argument("--tree-top-k", type=int, default=10)
     args = ap.parse_args()
     if args.bind is None:
         args.bind = ("tcp://0.0.0.0:5560" if args.transport == "zmq"
@@ -107,6 +111,17 @@ def main() -> int:
         head = load_eagle3_head(args.model, args.eagle_target_model,
                                 dtype=getattr(torch, args.dtype))
         engine = Eagle3DraftEngine(head, node_id=args.drafter_id)
+    elif args.kind == "eagle_tree":
+        import torch
+
+        from dsdreal.draft.engine_eagle_tree import EagleTreeDraftEngine, load_eagle_tree_head
+        if not args.eagle_target_model:
+            ap.error("--kind eagle_tree needs --eagle-target-model (or DSD_TARGET_MODEL)")
+        print("draft server: loading EAGLE tree head...", flush=True)
+        head, lm_head = load_eagle_tree_head(
+            args.model, args.eagle_target_model, dtype=getattr(torch, args.dtype),
+            total_tokens=args.tree_total_token, depth=args.tree_depth, top_k=args.tree_top_k)
+        engine = EagleTreeDraftEngine(head, node_id=args.drafter_id, lm_head=lm_head)
     else:
         engine = _vllm_engine(args)
     print(f"draft server: binding {args.transport} to {args.bind}...", flush=True)

@@ -193,6 +193,9 @@ def build(args) -> tuple[dict, list[dict]]:
             "prune_score_threshold": 0.0,
             "load_control": {"enabled": False},
         }
+        if args.eagle_total_tokens is not None:
+            # Nodes the target scores in one tree_decoding forward.
+            spec["eagle"]["total_tokens"] = args.eagle_total_tokens
 
     wait = float(sched.get("scheduler_max_wait_ms", 0.0))
     lane = {"pool": "default", "queue_policy": "fifo", "max_batch_requests": args.max_num_seqs,
@@ -253,6 +256,8 @@ def parse(argv=None):
     ap.add_argument("--gamma", type=int, default=4, help="static gamma (vanilla); SpecDec++ fallback")
     ap.add_argument("--eagle-beam-width", type=int, default=1)
     ap.add_argument("--eagle-max-depth", type=int, default=4)
+    ap.add_argument("--eagle-total-tokens", type=int, default=None,
+                    help="tree nodes verified by one target forward (official EAGLE total_token)")
     ap.add_argument("--acceptance-fixed-rate", type=float, default=None,
                     help="bypass the joblib regressor: constant per-position acceptance")
     ap.add_argument("--acceptance-profile", default=None,
