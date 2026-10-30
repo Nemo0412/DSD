@@ -2,7 +2,7 @@
 """K8: can a custom_class proposer get the target's EAGLE3 aux hidden states,
 aligned to the right positions?
 
-Runs the target with dsdreal.target.hidden_states installed and a capturing
+Runs the target with dspec_real.target.hidden_states installed and a capturing
 in-process drafter, under a small max_num_batched_tokens so prompts are
 chunk-prefilled (the buffered path). Two checks:
 
@@ -48,11 +48,11 @@ def main() -> int:
     from transformers import AutoModelForCausalLM, AutoTokenizer
     from vllm import EngineArgs, LLMEngine, SamplingParams
 
-    from dsdreal.draft.engine_echo import EchoDraftEngine
-    from dsdreal.experiments.driver import DATA_DIR, run_open_loop
-    from dsdreal.proto.transport import InProcessDraftClient
-    from dsdreal.target import hidden_states, proposer
-    from dsdreal.workload.trace import TraceEntry, build_requests, load_prompt_texts
+    from dspec_real.draft.engine_echo import EchoDraftEngine
+    from dspec_real.experiments.driver import DATA_DIR, run_open_loop
+    from dspec_real.proto.transport import InProcessDraftClient
+    from dspec_real.target import hidden_states, proposer
+    from dspec_real.workload.trace import TraceEntry, build_requests, load_prompt_texts
 
     captured: dict[str, list] = {}
 
@@ -79,7 +79,7 @@ def main() -> int:
         max_num_batched_tokens=args.batched_tokens, max_num_seqs=8,
         enable_chunked_prefill=True, enable_prefix_caching=False, disable_log_stats=True,
         speculative_config={"method": "custom_class",
-                            "model": "dsdreal.target.proposer.RemoteDraftProposer",
+                            "model": "dspec_real.target.proposer.RemoteDraftProposer",
                             "num_speculative_tokens": args.gamma}))
     runner = engine.engine_core.engine_core.model_executor.driver_worker.worker.model_runner
     m = runner.get_model()

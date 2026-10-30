@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-"""Sweep methods x N through dsdSim and build the sim side of the small Table 3.
+"""Sweep methods x N through DSpec and build the sim side of the small Table 3.
 
-    export DSDSIM_ROOT=/path/to/dsdSim
+    export DSPEC_SIM_ROOT=/path/to/DSpec
     SIMPY=/path/to/simvenv/bin/python
     $SIMPY sim/run_sweep.py                                  # vanilla specpp eagle3, N=1 2 4 7
     $SIMPY sim/run_sweep.py --methods "vanilla specpp" --ns "1 2" --mode lockstep \
@@ -9,7 +9,7 @@
 
 For every (method, N) it writes <out>/configs/<method>_N<n>/{config.yaml,trace.jsonl,sim.log},
 <out>/<method>_N<n>.json (table row + diagnostics + per-request records), and
-finally <out>/table3_sim.md in the "dsdSim convention" layout of
+finally <out>/table3_sim.md in the "DSpec convention" layout of
 scripts/make_table3.py.
 """
 from __future__ import annotations
@@ -28,7 +28,7 @@ import make_config  # noqa: E402
 
 NAMES = {"vanilla": "Vanilla SD", "specpp": "SpecDec++", "eagle3": "EAGLE3 (sim `eagle`)",
          "eagle3_chain": "EAGLE3 (chain proxy)"}
-# method -> make_config args. eagle3_chain = dsdSim's vanilla chain drafting
+# method -> make_config args. eagle3_chain = DSpec's vanilla chain drafting
 # (gamma 4) charged at the EAGLE3-head draft latency: the closest thing to our
 # real EAGLE3 path the unmodified sim can express (see README).
 SIM_ARGS = {"vanilla": ["--method", "vanilla"], "specpp": ["--method", "specpp"],
@@ -73,7 +73,7 @@ def table(out: Path) -> str:
             ("completed", lambda r: float(r["diagnostics"]["completed_conversations"]), 0)]
     any_r = next(iter(runs.values()))
     c = any_r["config"]
-    head = (f"dsdSim, mode={c.get('mode')}, per_draft_rps={c.get('per_draft_rps')}, rtt={c.get('rtt_ms')} ms, "
+    head = (f"DSpec, mode={c.get('mode')}, per_draft_rps={c.get('per_draft_rps')}, rtt={c.get('rtt_ms')} ms, "
             f"seed={c.get('seed')}, calibration={c.get('calibration')}")
     status = ""
     try:
@@ -83,7 +83,7 @@ def table(out: Path) -> str:
     parts = [f"<!-- {head} -->", f"_{head}_", ""]
     if status:
         parts += [f"**Calibration status:** {status}", ""]
-    parts += [block(runs, "dsdSim convention", sim), "", block(runs, "Sim diagnostics", diag)]
+    parts += [block(runs, "DSpec convention", sim), "", block(runs, "Sim diagnostics", diag)]
     bad = [f"{m}_N{n}" for (m, n), r in sorted(runs.items()) if not r["diagnostics"]["all_completed"]]
     if bad:
         parts.append(f"\n**not all requests completed in:** {bad}")
@@ -98,7 +98,7 @@ def run_one(method: str, n: int, a) -> str:
         return f"skip {tag} (exists)"
     argv = SIM_ARGS[method] + ["--n-drafters", str(n), "--calibration", str(a.calibration),
             "--per-draft-rps", str(a.per_draft_rps), "--rtt-ms", str(a.rtt_ms), "--seed", str(a.seed),
-            "--mode", a.mode, "--out-dir", str(cdir), "--dsdsim-root", str(a.dsdsim_root)]
+            "--mode", a.mode, "--out-dir", str(cdir), "--dspec-sim-root", str(a.dspec_sim_root)]
     if a.n_requests:
         argv += ["--n-requests", str(a.n_requests)]
     if a.acceptance_profile:
@@ -107,7 +107,7 @@ def run_one(method: str, n: int, a) -> str:
         argv += ["--target-tokens-scale", str(a.target_tokens_scale)]
     argv += list(a.extra or [])
     cfg_path = make_config.write(make_config.parse(argv))
-    env = dict(os.environ, DSDSIM_ROOT=str(a.dsdsim_root), PYTHONWARNINGS="ignore")
+    env = dict(os.environ, DSPEC_SIM_ROOT=str(a.dspec_sim_root), PYTHONWARNINGS="ignore")
     p = subprocess.run([a.python, str(HERE / "run_sim.py"), str(cfg_path), "-o", str(res),
                         "--log", str(cdir / "sim.log")], env=env, capture_output=True, text=True)
     if p.returncode != 0:
@@ -127,7 +127,7 @@ def main(argv=None) -> int:
     ap.add_argument("--mode", choices=("async", "lockstep"), default="async")
     ap.add_argument("--acceptance-profile", type=Path, default=None)
     ap.add_argument("--target-tokens-scale", type=float, default=1.0)
-    ap.add_argument("--dsdsim-root", type=Path, default=os.environ.get("DSDSIM_ROOT"))
+    ap.add_argument("--dspec-sim-root", type=Path, default=os.environ.get("DSPEC_SIM_ROOT"))
     ap.add_argument("--python", default=sys.executable, help="interpreter of the sim venv")
     ap.add_argument("--out", type=Path, default=HERE / "results")
     ap.add_argument("--jobs", type=int, default=4)
@@ -135,9 +135,9 @@ def main(argv=None) -> int:
     ap.add_argument("--table-only", action="store_true")
     ap.add_argument("extra", nargs="*", help="extra make_config.py args after --")
     a = ap.parse_args(argv)
-    if not a.dsdsim_root:
-        ap.error("set DSDSIM_ROOT or pass --dsdsim-root")
-    a.dsdsim_root = Path(a.dsdsim_root).resolve()
+    if not a.dspec_sim_root:
+        ap.error("set DSPEC_SIM_ROOT or pass --dspec-sim-root")
+    a.dspec_sim_root = Path(a.dspec_sim_root).resolve()
     a.out.mkdir(parents=True, exist_ok=True)
     if not a.table_only:
         todo = [(m, int(n)) for m in a.methods.split() for n in a.ns.split()]

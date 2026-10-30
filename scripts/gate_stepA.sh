@@ -13,7 +13,7 @@ mkdir -p "$OUT"
 echo "target GPU $T, draft GPU $D -> $OUT"
 COMMON=(--n-requests 40 --max-output-tokens 128 --per-draft-rps 2 --gamma 4 --rtt-ms 10 --chat-template --no-prefix-caching)
 
-CUDA_VISIBLE_DEVICES=$T $DSD_PY -m dsdreal.experiments.driver --dtype float32 "${COMMON[@]}" \
+CUDA_VISIBLE_DEVICES=$T $DSD_PY -m dspec_real.experiments.driver --dtype float32 "${COMMON[@]}" \
     --out "$OUT/fp32_base" > "$OUT.fp32_base.log" 2>&1 || { echo "baseline failed"; tail -20 "$OUT.fp32_base.log"; exit 1; }
 DSD_DRAFT_DTYPE=float32 scripts/run_nto1.sh "$OUT/fp32_spec" 1 "$T" "$D" --dtype float32 "${COMMON[@]}" \
     > "$OUT.fp32_spec.log" 2>&1 || { echo "fp32 spec failed"; tail -30 "$OUT.fp32_spec.log"; exit 1; }

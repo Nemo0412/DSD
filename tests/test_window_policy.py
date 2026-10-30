@@ -1,14 +1,14 @@
-"""SpecDec++ gamma policy (port of dsdSim SpecPPGammaPolicy), the acceptance
+"""SpecDec++ gamma policy (port of DSpec SpecPPGammaPolicy), the acceptance
 profile it reads, and per-request gamma in RemoteDraftProposer."""
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from dsdreal.draft.engine_echo import EchoDraftEngine
-from dsdreal.policy.window import AcceptanceProfile, SpecPPGamma, StaticGamma
-from dsdreal.proto.transport import InProcessDraftClient
-from dsdreal.target import proposer
+from dspec_real.draft.engine_echo import EchoDraftEngine
+from dspec_real.policy.window import AcceptanceProfile, SpecPPGamma, StaticGamma
+from dspec_real.proto.transport import InProcessDraftClient
+from dspec_real.target import proposer
 
 
 def _profile(*probs, edges=()):

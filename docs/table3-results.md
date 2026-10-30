@@ -1,21 +1,21 @@
-# 小规模 Table 3：真机结果与 dsdSim 对照
+# 小规模 Table 3：真机结果与 DSpec 对照
 
 NYULAB（4× RTX A6000，只用空闲卡，最多 3 张），vLLM 0.27.1。计划与实现细节见 [table3-plan.md](table3-plan.md)；数据在 [results/table3_client/](../results/table3_client/)（主结果，端云场景）和 [results/table3_final/](../results/table3_final/)（数据中心场景）。
 
-## 场景：按 dsdSim 的端云模型
+## 场景：按 DSpec 的端云模型
 
-dsdSim 把 drafter 建模成**用户侧设备**（README：「Client-side draft model」；DESIGN.md：手机/笔记本/边缘 GPU 做 draft，数据中心 GPU 做 target），请求在 drafter 的客户端产生：prompt 先上传到 target，结果再传回客户端。主结果按这个场景跑（driver `--client-side`）：请求在客户端时间到达，经上行 RTT/2 才进入 target，每个 token 经下行 RTT/2 才算到达用户。每轮的工作两种场景完全相同，所以 TPOT/吞吐不变，TTFT 与端到端多一个 RTT。控制循环仍在 target 的 vLLM step 里（`custom_class` 只能如此），时间上与「drafter 驱动」逐事件等价（每轮：draft → 上行 → verify → 下行）。
+DSpec 把 drafter 建模成**用户侧设备**（README：「Client-side draft model」；DESIGN.md：手机/笔记本/边缘 GPU 做 draft，数据中心 GPU 做 target），请求在 drafter 的客户端产生：prompt 先上传到 target，结果再传回客户端。主结果按这个场景跑（driver `--client-side`）：请求在客户端时间到达，经上行 RTT/2 才进入 target，每个 token 经下行 RTT/2 才算到达用户。每轮的工作两种场景完全相同，所以 TPOT/吞吐不变，TTFT 与端到端多一个 RTT。控制循环仍在 target 的 vLLM step 里（`custom_class` 只能如此），时间上与「drafter 驱动」逐事件等价（每轮：draft → 上行 → verify → 下行）。
 
 ## 配置
 
 | | |
 |---|---|
-| target | Llama-3.1-8B-Instruct，bf16，1 张 A6000，eager，max_num_seqs 64，prefix caching 关闭（远程 EAGLE3 需要，三种方法统一；dsdSim 本身也不建模 prefix cache） |
+| target | Llama-3.1-8B-Instruct，bf16，1 张 A6000，eager，max_num_seqs 64，prefix caching 关闭（远程 EAGLE3 需要，三种方法统一；DSpec 本身也不建模 prefix cache） |
 | draft | Vanilla / SpecDec++：Llama-3.2-1B-Instruct（独立 vLLM 进程）；EAGLE3：yuhuili/EAGLE3-LLaMA3.1-Instruct-8B 远程 head（target 把 aux hidden states 经 ZMQ 发过去） |
 | N 个 drafter | target 独占 1 卡；drafter 轮转摆在另 2 张卡：N=1/2 每卡 ≤1 个（T1），N=4 每卡 2 个、N=7 每卡 3–4 个（T2，共卡）。每个 run 的实际摆放记在 `placement.json` |
 | 网络 | 注入 RTT 10 ms（单向 5 ms，无抖动），ZMQ；传输层实测额外开销 ≈ 1 ms |
-| 负载 | dsdSim `gsm8k_trace_master` 的长度，开环 Poisson，总速率 = 1 req/s × N，前 min(400, 120N) 个请求；chat 模板，prompt 两两不同，输出严格 `target_tokens`（ignore_eos），greedy |
-| 方法 | Vanilla γ=4；SpecDec++ = dsdSim `SpecPPGammaPolicy` 逐行移植（min 2 / max 8 / 阈值 0.7，每请求选一次 γ，逐位置接受率用 γ=8 标定 run 实测，实际选出 γ∈{4, 8}）；EAGLE3 链式 γ=4 |
+| 负载 | DSpec `gsm8k_trace_master` 的长度，开环 Poisson，总速率 = 1 req/s × N，前 min(400, 120N) 个请求；chat 模板，prompt 两两不同，输出严格 `target_tokens`（ignore_eos），greedy |
+| 方法 | Vanilla γ=4；SpecDec++ = DSpec `SpecPPGammaPolicy` 逐行移植（min 2 / max 8 / 阈值 0.7，每请求选一次 γ，逐位置接受率用 γ=8 标定 run 实测，实际选出 γ∈{4, 8}）；EAGLE3 链式 γ=4 |
 | 干净度 | 每个 run 前重新挑空闲卡、结束时检查卡上有无其他用户进程：全部 12 个 run `clean` |
 
 ## 门禁（全部通过）
@@ -32,7 +32,7 @@ dsdSim 把 drafter 建模成**用户侧设备**（README：「Client-side draft 
 
 ## 真机 Table 3（端云场景）
 
-**dsdSim 口径**（TTFT 到首个有接受 token 的轮结束，TPOT = Σ轮时间/Σaccepted（不含 bonus），吞吐 = 完成数/时间跨度）：
+**DSpec 口径**（TTFT 到首个有接受 token 的轮结束，TPOT = Σ轮时间/Σaccepted（不含 bonus），吞吐 = 完成数/时间跨度）：
 
 | Method | Metric | N=1 | N=2 | N=4 | N=7 |
 |---|---|---|---|---|---|
@@ -95,7 +95,7 @@ dsdSim 把 drafter 建模成**用户侧设备**（README：「Client-side draft 
 - **T1（每个 drafter 独占一卡）**：网络+传输 ≈ 11 ms（注入 10 ms + 传输 ≈ 1 ms），verify ≈ 26 ms 基本恒定，差别只在 draft（EAGLE3 10 ms / 1B 24 ms / SpecDec++ 42 ms）。
 - **T2（共卡）**：draft 时间成倍上涨，「网络+传输」也涨到 22–47 ms——多出来的是请求在 drafter server 里排队、等同卡的其他 drafter 进程；同时 batch 变大，verify 升到 67–90 ms。N ≥ 4 的瓶颈主要是 3 卡限制下的 drafter 共卡争用。要看「每个 drafter 独占一卡」的 N=4/7，需要多于 3 张卡。
 
-## dsdSim 对照（同一端云场景）
+## DSpec 对照（同一端云场景）
 
 sim 用真机标定（`scripts/final_compare.sh`）：target verify/prefill 与 draft 延迟由 `sim/calibrate_from_run.py` 从真机 `steps.jsonl` 拟合（verify = 23.6 + 0.19·B + 0.079·Σ(γ+1) ms，R² 0.81；1B draft = 9.7 + 3.6·γ + 0.23·γ·(B−1) ms，R² 0.82；EAGLE3 单独拟合），接受率用真机实测的逐位置 profile（EAGLE3 用自己的），lockstep 模式（我们的 target step 阻塞等 draft；draft 作为 step 尾部），轮数按 γ/L̄ 对齐，prompt 长度用真机实际长度；端云场景的上行+下行在 lockstep 下是纯延迟，精确地给 TTFT/端到端 +RTT。EAGLE3 对照的是 sim 的链式代理（sim 自带的 EAGLE 模型在首个零接受轮就结束整个请求，不可用）。
 
@@ -113,7 +113,7 @@ sim 用真机标定（`scripts/final_compare.sh`）：target verify/prefill 与 
 |  | TPOT (ms) | 18.4 / 16.8 (-9%) | 19.6 / 17.7 (-10%) | 26.6 / 22.2 (-16%) | 55.9 / 30.6 (-45%) |
 |  | Thr. (req/s) | 0.9 / 0.9 (+0%) | 1.9 / 1.9 (-0%) | 3.7 / 3.7 (+0%) | 6.1 / 6.3 (+3%) |
 
-MAPE 15.2%（36 格，中位数 9.6%）；draft 延迟合并标定时 18.0%（中位数 8.9%）。（接受率这里用的是逐位置概率 + 每轮独立抽样，即 dsdSim 自己的机制；下一节改为逐轮回放真机事件。）
+MAPE 15.2%（36 格，中位数 9.6%）；draft 延迟合并标定时 18.0%（中位数 8.9%）。（接受率这里用的是逐位置概率 + 每轮独立抽样，即 DSpec 自己的机制；下一节改为逐轮回放真机事件。）
 
 结论：
 
@@ -137,16 +137,16 @@ MAPE 15.2%（36 格，中位数 9.6%）；draft 延迟合并标定时 18.0%（�
 |  | TPOT (ms) | 18.4 / 17.5 (-5%) | 19.6 / 18.5 (-6%) | 26.6 / 23.1 (-13%) | 55.9 / 31.6 (-44%) |
 |  | Thr. (req/s) | 0.9 / 0.9 (+0%) | 1.9 / 1.9 (+0%) | 3.7 / 3.7 (+0%) | 6.1 / 6.3 (+3%) |
 
-MAPE 13.3%（36 格，中位数 5.5%）。T1（N ≤ 2）下 TPOT −6…0%、吞吐一致；TTFT 仍偏高 8–16%（prefill 段，与接受率无关）；N=4（共卡）TPOT −13%；N=7 仍严重低估——这些就是 dsdSim 系统模型本身的误差。
+MAPE 13.3%（36 格，中位数 5.5%）。T1（N ≤ 2）下 TPOT −6…0%、吞吐一致；TTFT 仍偏高 8–16%（prefill 段，与接受率无关）；N=4（共卡）TPOT −13%；N=7 仍严重低估——这些就是 DSpec 系统模型本身的误差。
 
-### 对照过程中发现并修正的问题（均在我们的工具里，不在 dsdSim 原版）
+### 对照过程中发现并修正的问题（均在我们的工具里，不在 DSpec 原版）
 
-- **lockstep 的 draft 位置**：vLLM 一个 step 是「forward（verify + prefill）→ propose（draft + RTT）」，draft 在尾部；我们的 sim 适配层最初把 draft + RTT 算在 batch 头部，新请求的 prefill 所在 batch 要白等别人的 draft、首轮还要再付一次自己的——TTFT 平白多一轮（≈ 34 ms）。改为「forward 结束即完成、target 再占用 draft 尾巴」后，低负载 TTFT 误差从 +33…59% 降到现在的水平，TPOT/吞吐不变（`sim/dsdsim_shim.py`）。
-- 早先文档里「sim 由 drafter 驱动，首 token 前多一次网络往返和 draft」的解释对 lockstep 对照不成立（该模式下 prefill 网络为 0）；它描述的是 dsdSim 原生异步模式下的端云场景，现已通过真机 `--client-side` 在两边统一。
+- **lockstep 的 draft 位置**：vLLM 一个 step 是「forward（verify + prefill）→ propose（draft + RTT）」，draft 在尾部；我们的 sim 适配层最初把 draft + RTT 算在 batch 头部，新请求的 prefill 所在 batch 要白等别人的 draft、首轮还要再付一次自己的——TTFT 平白多一轮（≈ 34 ms）。改为「forward 结束即完成、target 再占用 draft 尾巴」后，低负载 TTFT 误差从 +33…59% 降到现在的水平，TPOT/吞吐不变（`sim/dspec_sim_shim.py`）。
+- 早先文档里「sim 由 drafter 驱动，首 token 前多一次网络往返和 draft」的解释对 lockstep 对照不成立（该模式下 prefill 网络为 0）；它描述的是 DSpec 原生异步模式下的端云场景，现已通过真机 `--client-side` 在两边统一。
 
 ## 数据中心场景（对照）
 
-请求直接到达 target（不经客户端上下行），其余相同，结果在 [results/table3_final/](../results/table3_final/)：TTFT 比端云场景少约一个 RTT（如 vanilla N=1：dsdSim 口径 132 vs 138 ms），TPOT/吞吐在噪声内一致；sim 对照（同样修正后）MAPE 14.4%（中位数 8.5%）。
+请求直接到达 target（不经客户端上下行），其余相同，结果在 [results/table3_final/](../results/table3_final/)：TTFT 比端云场景少约一个 RTT（如 vanilla N=1：DSpec 口径 132 vs 138 ms），TPOT/吞吐在噪声内一致；sim 对照（同样修正后）MAPE 14.4%（中位数 8.5%）。
 
 ## n:m（2 target : 2 drafter，3 张卡）
 
@@ -159,7 +159,7 @@ MAPE 13.3%（36 格，中位数 5.5%）。T1（N ≤ 2）下 TPOT −6…0%、�
 
 这个负载低于饱和，两种策略几乎一样，符合 paper「策略差异出现在 target 饱和附近」的叙述；要复现 JSQ/RR 交叉需要按 ρ 扫到饱和（plan.md V3），不在本次范围内。
 
-实现上踩到的坑：第一版 JSQ 在每次派发前同步问一遍各 target 的队列深度，而 target 只在两个 engine step 之间回复，等于每个请求在 router 上多等一个 step——同样负载下 TTFT 均值 434 ms、p99 1.2 s（RR 146 ms）。现在 target 每个 step 后主动推送深度，router 用「快照 + 快照之后已派出的请求」，不再阻塞（`dsdreal/router/`）。
+实现上踩到的坑：第一版 JSQ 在每次派发前同步问一遍各 target 的队列深度，而 target 只在两个 engine step 之间回复，等于每个请求在 router 上多等一个 step——同样负载下 TTFT 均值 434 ms、p99 1.2 s（RR 146 ms）。现在 target 每个 step 后主动推送深度，router 用「快照 + 快照之后已派出的请求」，不再阻塞（`dspec_real/router/`）。
 
 ## 复现
 

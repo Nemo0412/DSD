@@ -73,7 +73,7 @@ echo "target_host=$(hostname)" | tee "${OUT}/target_host.txt"
 echo "target $(hostname) -> ${ADDR}"
 
 srun --export=ALL --het-group=0 --ntasks=1 --cpus-per-task=8 \
-  env CUDA_VISIBLE_DEVICES=0 "${DSD_PY}" -m dsdreal.experiments.driver \
+  env CUDA_VISIBLE_DEVICES=0 "${DSD_PY}" -m dspec_real.experiments.driver \
   --target-model "${DSD_TARGET_MODEL}" --draft-addr "d0=${ADDR}" \
   --gamma 4 --rtt-ms 0 --n-requests 8 --warmup 1 \
   --dtype bfloat16 --no-prefix-caching --max-num-seqs 8 \

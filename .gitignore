@@ -25,5 +25,5 @@ runs/*
 # measured comparison lives in results/table3_final/.
 sim/results/
 
-# dsdSim clone + its venv for sim/ (scripts/final_compare.sh)
+# DSpec clone + its venv for sim/ (scripts/final_compare.sh)
 .sim/

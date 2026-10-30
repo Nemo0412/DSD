@@ -85,9 +85,9 @@ def main() -> int:
     _quiet_env()
     from vllm import LLM
 
-    from dsdreal.netem.sleep import SleepEmulator
-    from dsdreal.proto.transport import ZmqDraftClient
-    from dsdreal.target import proposer
+    from dspec_real.netem.sleep import SleepEmulator
+    from dspec_real.proto.transport import ZmqDraftClient
+    from dspec_real.target import proposer
 
     client = ZmqDraftClient({"d0": args.draft_addr})
     proposer.configure(client)
@@ -98,7 +98,7 @@ def main() -> int:
         max_model_len=MAX_LEN,
         speculative_config={
             "method": "custom_class",
-            "model": "dsdreal.target.proposer.RemoteDraftProposer",
+            "model": "dspec_real.target.proposer.RemoteDraftProposer",
             "num_speculative_tokens": GAMMA,
         },
     )

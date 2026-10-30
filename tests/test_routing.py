@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from dsdreal.policy.routing import RoundRobin
+from dspec_real.policy.routing import RoundRobin
 
 
 def test_round_robin_cycles_in_order():
@@ -23,7 +23,7 @@ def test_round_robin_rejects_empty_registry():
 
 
 def test_target_policies():
-    from dsdreal.policy.routing import JoinShortestQueue, TargetRoundRobin, make_target_policy
+    from dspec_real.policy.routing import JoinShortestQueue, TargetRoundRobin, make_target_policy
     ids = ["t0", "t1"]
     rr = TargetRoundRobin()
     assert [rr.select_target(ids) for _ in range(4)] == ["t0", "t1", "t0", "t1"]

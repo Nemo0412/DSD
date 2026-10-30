@@ -34,7 +34,7 @@ def main() -> int:
     import torch
     from transformers import AutoModelForCausalLM
 
-    from dsdreal.experiments.driver import add_workload_args, build_workload
+    from dspec_real.experiments.driver import add_workload_args, build_workload
 
     wp = argparse.ArgumentParser()
     add_workload_args(wp)

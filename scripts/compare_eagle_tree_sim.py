@@ -145,7 +145,7 @@ def run_one(dataset: str, src: Path, out_root: Path, stats: dict):
         "--replay-from", str(work),
         "--max-num-seqs", "1",
         "--trace", str(work / "trace_src.jsonl"),
-        "--dsdsim-root", str(ROOT),
+        "--dspec-sim-root", str(ROOT),
         "--out-dir", str(od),
         "--tail-ms", "600000",
         "--eagle-beam-width", "1",
@@ -167,18 +167,18 @@ def run_one(dataset: str, src: Path, out_root: Path, stats: dict):
     trace_path.write_text("".join(json.dumps(r) + "\n" for r in fixed))
     import yaml
     cfg = yaml.safe_load(cfg_path.read_text())
-    cfg["_dsdreal"]["comm_ms"] = stats["comm"]
-    cfg["_dsdreal"]["tree_nodes"] = stats["tree_nodes"]
-    cfg["_dsdreal"]["model_pair"] = "Qwen2-7B + EAGLE head, 2x L40S"
+    cfg["_dspec_real"]["comm_ms"] = stats["comm"]
+    cfg["_dspec_real"]["tree_nodes"] = stats["tree_nodes"]
+    cfg["_dspec_real"]["model_pair"] = "Qwen2-7B + EAGLE head, 2x L40S"
     cfg_path.write_text(yaml.safe_dump(cfg, sort_keys=False, width=120))
     result_path = od / "result.json"
     env = dict(os.environ)
     env.pop("PYTHONPATH", None)
-    env["DSDSIM_ROOT"] = str(ROOT)
+    env["DSPEC_SIM_ROOT"] = str(ROOT)
     subprocess.run(
         [str(SIM_PY), str(ROOT / "sim/run_sim.py"), str(cfg_path),
          "-o", str(result_path), "--log", str(od / "sim.log"),
-         "--dsdsim-root", str(ROOT)],
+         "--dspec-sim-root", str(ROOT)],
         check=True,
         env=env,
     )

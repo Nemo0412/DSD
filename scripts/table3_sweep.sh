@@ -12,7 +12,7 @@ cd "$(dirname "$0")/.."
 source scripts/env_nyulab.sh
 OUT=${1:-runs/table3}; METHODS=${2:-vanilla specpp}; NS=${3:-1 2 4 7}
 PER_DRAFT_RPS=${PER_DRAFT_RPS:-1.0}; RTT_MS=${RTT_MS:-10}; GAMMA=${GAMMA:-4}
-# client: dsdSim's scenario -- requests are born at the drafters' clients
+# client: DSpec's scenario -- requests are born at the drafters' clients
 # (prompt uplink + token downlink of RTT/2 each); datacenter: they arrive at
 # the target.
 SCENARIO=${SCENARIO:-client}

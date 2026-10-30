@@ -58,7 +58,7 @@ run_one humaneval "${ROOT}/aws-trn/prompts/humaneval_test.jsonl" 16 80
 
 echo ">>> simulator replay"
 unset PYTHONPATH
-export DSDSIM_ROOT="${ROOT}"
+export DSPEC_SIM_ROOT="${ROOT}"
 /scratch/ll5914/dsd-simvenv/bin/python "${ROOT}/scripts/compare_eagle_tree_sim.py" "${OUT}" \
   | tee "${OUT}/align.txt"
 echo DONE

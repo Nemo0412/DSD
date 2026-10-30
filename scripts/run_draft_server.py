@@ -31,7 +31,7 @@ def _vllm_engine(args):
     print("draft server: constructing LLM...", flush=True)
     from vllm import LLM
 
-    from dsdreal.draft.engine_vllm import VllmDraftEngine
+    from dspec_real.draft.engine_vllm import VllmDraftEngine
 
     llm = LLM(model=args.model, gpu_memory_utilization=args.gpu_frac,
               enforce_eager=True, dtype=args.dtype, disable_log_stats=True,
@@ -103,8 +103,8 @@ def main() -> int:
     if args.kind == "eagle3":
         import torch
 
-        from dsdreal.draft.eagle3_model import load_eagle3_head
-        from dsdreal.draft.engine_eagle3 import Eagle3DraftEngine
+        from dspec_real.draft.eagle3_model import load_eagle3_head
+        from dspec_real.draft.engine_eagle3 import Eagle3DraftEngine
         if not args.eagle_target_model:
             ap.error("--kind eagle3 needs --eagle-target-model (or DSD_TARGET_MODEL)")
         print("draft server: loading EAGLE3 head...", flush=True)
@@ -114,7 +114,7 @@ def main() -> int:
     elif args.kind == "eagle_tree":
         import torch
 
-        from dsdreal.draft.engine_eagle_tree import EagleTreeDraftEngine, load_eagle_tree_head
+        from dspec_real.draft.engine_eagle_tree import EagleTreeDraftEngine, load_eagle_tree_head
         if not args.eagle_target_model:
             ap.error("--kind eagle_tree needs --eagle-target-model (or DSD_TARGET_MODEL)")
         print("draft server: loading EAGLE tree head...", flush=True)
@@ -126,14 +126,14 @@ def main() -> int:
         engine = _vllm_engine(args)
     print(f"draft server: binding {args.transport} to {args.bind}...", flush=True)
     if args.transport == "zmq":
-        from dsdreal.draft.server import DraftServer
+        from dspec_real.draft.server import DraftServer
 
         server = DraftServer(engine, args.bind)
         address = server.bound_addr
     else:
         from urllib.parse import urlparse
 
-        from dsdreal.draft.http_server import HttpDraftServer
+        from dspec_real.draft.http_server import HttpDraftServer
 
         parsed = urlparse(args.bind)
         server = HttpDraftServer(engine, host=parsed.hostname or "0.0.0.0",

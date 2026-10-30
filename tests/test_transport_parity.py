@@ -16,11 +16,11 @@ from contextlib import contextmanager
 
 import pytest
 
-from dsdreal.draft.engine_echo import EchoDraftEngine
-from dsdreal.draft.http_server import HttpDraftServer
-from dsdreal.draft.server import DraftServer
-from dsdreal.proto.messages import SpeculateRequest
-from dsdreal.proto.transport import (
+from dspec_real.draft.engine_echo import EchoDraftEngine
+from dspec_real.draft.http_server import HttpDraftServer
+from dspec_real.draft.server import DraftServer
+from dspec_real.proto.messages import SpeculateRequest
+from dspec_real.proto.transport import (
     HttpDraftClient,
     InProcessDraftClient,
     ZmqDraftClient,

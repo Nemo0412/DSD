@@ -9,8 +9,8 @@ Two things must both hold:
    exact match against a non-spec fp32 baseline, same as verify_fused_real_draft.py.
 2. RoutingPolicy actually fans out: with N prompts and N drafters, RoundRobin
    must spread fresh-request assignments roughly evenly, not pile them onto
-   one drafter (dsdreal/policy/routing.py; recorded via
-   dsdreal.target.proposer.configure(..., assignments=sink), not by scraping
+   one drafter (dspec_real/policy/routing.py; recorded via
+   dspec_real.target.proposer.configure(..., assignments=sink), not by scraping
    per-drafter server logs).
 
 Run against >=2 draft servers already listening, one --draft-addr per
@@ -87,9 +87,9 @@ def main() -> int:
     _quiet_env()
     from vllm import LLM
 
-    from dsdreal.policy.routing import RoundRobin
-    from dsdreal.proto.transport import ZmqDraftClient
-    from dsdreal.target import proposer
+    from dspec_real.policy.routing import RoundRobin
+    from dspec_real.proto.transport import ZmqDraftClient
+    from dspec_real.target import proposer
 
     common = dict(enforce_eager=True, dtype="float32", disable_log_stats=True,
                   max_model_len=MAX_LEN)
@@ -109,7 +109,7 @@ def main() -> int:
         model=args.target_model, gpu_memory_utilization=args.gpu_frac,
         speculative_config={
             "method": "custom_class",
-            "model": "dsdreal.target.proposer.RemoteDraftProposer",
+            "model": "dspec_real.target.proposer.RemoteDraftProposer",
             "num_speculative_tokens": GAMMA,
         },
         **common,

@@ -5,11 +5,11 @@ import time
 
 import pytest
 
-from dsdreal.draft.engine_echo import EchoDraftEngine
-from dsdreal.netem.null import NullEmulator
-from dsdreal.netem.sleep import SleepEmulator
-from dsdreal.proto.messages import SpeculateRequest
-from dsdreal.proto.transport import InProcessDraftClient, make_client
+from dspec_real.draft.engine_echo import EchoDraftEngine
+from dspec_real.netem.null import NullEmulator
+from dspec_real.netem.sleep import SleepEmulator
+from dspec_real.proto.messages import SpeculateRequest
+from dspec_real.proto.transport import InProcessDraftClient, make_client
 
 
 def req(seq_id="s0", drafter="d0", gamma=4, accepted=(), n_conf=0, prompt=None):

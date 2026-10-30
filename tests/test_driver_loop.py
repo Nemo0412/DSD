@@ -14,14 +14,14 @@ from dataclasses import dataclass
 import numpy as np
 import pytest
 
-from dsdreal.draft.engine_echo import EchoDraftEngine
-from dsdreal.experiments.driver import run_open_loop
-from dsdreal.metrics.collector import collect, summarize
-from dsdreal.metrics.records import RoundRecord
-from dsdreal.policy.routing import RoundRobin
-from dsdreal.proto.transport import InProcessDraftClient
-from dsdreal.target import proposer
-from dsdreal.workload.trace import WorkItem
+from dspec_real.draft.engine_echo import EchoDraftEngine
+from dspec_real.experiments.driver import run_open_loop
+from dspec_real.metrics.collector import collect, summarize
+from dspec_real.metrics.records import RoundRecord
+from dspec_real.policy.routing import RoundRobin
+from dspec_real.proto.transport import InProcessDraftClient
+from dspec_real.target import proposer
+from dspec_real.workload.trace import WorkItem
 
 STEP_MS = 10.0
 
@@ -178,14 +178,14 @@ def test_slot_reuse_with_longer_new_prompt_is_a_new_request():
 
 
 def test_client_side_links_shift_ttft_not_tpot(monkeypatch):
-    """dsdSim's scenario: the prompt pays an uplink before admission, every
+    """DSpec's scenario: the prompt pays an uplink before admission, every
     token a downlink before the client sees it. TTFT (both conventions) grows
     by exactly up + down; TPOT and the accounting do not change."""
     def run(up, down):
         clock = _Clock()
         # round timestamps come from the transport's perf_counter: put it on
         # the same fake clock, as the real system shares one clock
-        import dsdreal.proto.transport as transport
+        import dspec_real.proto.transport as transport
         monkeypatch.setattr(transport.time, "perf_counter", lambda: clock.t / 1000.0)
         rounds: list[RoundRecord] = []
         proposer.configure(InProcessDraftClient(EchoDraftEngine("d0")), rounds=rounds)

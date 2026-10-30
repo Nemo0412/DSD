@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-"""Run ONE dsdSim config through the shim and write a result JSON.
+"""Run ONE DSpec config through the shim and write a result JSON.
 
-    DSDSIM_ROOT=/path/to/dsdSim python sim/run_sim.py CONFIG.yaml -o result.json [--log sim.log]
+    DSPEC_SIM_ROOT=/path/to/DSpec python sim/run_sim.py CONFIG.yaml -o result.json [--log sim.log]
 
 Must run in the sim venv (simpy, numpy, scikit-learn==1.5.2, joblib, pyyaml).
 The simulator is chatty on stdout; it is redirected to --log.
@@ -18,7 +18,7 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import dsdsim_shim  # noqa: E402
+import dspec_sim_shim  # noqa: E402
 
 
 def _mean(xs):
@@ -26,15 +26,15 @@ def _mean(xs):
     return statistics.fmean(xs) if xs else None
 
 
-def run(config: Path, log_path: Path | None, dsdsim_root: str | None) -> dict:
+def run(config: Path, log_path: Path | None, dspec_sim_root: str | None) -> dict:
     import yaml
 
     raw = yaml.safe_load(config.read_text())
-    meta = dict(raw.get("_dsdreal", {}))
+    meta = dict(raw.get("_dspec_real", {}))
     t0 = time.perf_counter()
     log_cm = open(log_path, "w") if log_path else open("/dev/null", "w")
     with log_cm as log, contextlib.redirect_stdout(log):
-        sim = dsdsim_shim.load_sim(dsdsim_root)
+        sim = dspec_sim_shim.load_sim(dspec_sim_root)
         cfg = sim.load_config_from_mapping(raw)
         metrics, targets, drafts = sim.run(cfg)
         summary = metrics.summary()
@@ -61,7 +61,7 @@ def run(config: Path, log_path: Path | None, dsdsim_root: str | None) -> dict:
     requests = []
     for c in convs:
         r = by_id.get(c["id"], {})
-        requests.append({  # dsdSim verification/validate.py::load_actual_run field names
+        requests.append({  # DSpec verification/validate.py::load_actual_run field names
             "request_id": c["id"],
             "arrival_ms": r.get("arrival_ms", c["start_ms"]),
             "prompt_tokens": r.get("prompt_tokens"),
@@ -126,9 +126,9 @@ def main(argv=None) -> int:
     ap.add_argument("config", type=Path)
     ap.add_argument("-o", "--out", type=Path, required=True)
     ap.add_argument("--log", type=Path, default=None)
-    ap.add_argument("--dsdsim-root", default=None)
+    ap.add_argument("--dspec-sim-root", default=None)
     a = ap.parse_args(argv)
-    res = run(a.config, a.log, a.dsdsim_root)
+    res = run(a.config, a.log, a.dspec_sim_root)
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(json.dumps(res, indent=2, default=float))
     tb, dg = res["table"], res["diagnostics"]

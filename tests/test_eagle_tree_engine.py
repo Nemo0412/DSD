@@ -3,10 +3,10 @@ from __future__ import annotations
 
 import torch
 
-from dsdreal.draft.eagle_tree_codec import pack_hidden, pack_tree, unpack_hidden, unpack_tree
-from dsdreal.draft.engine_eagle_tree import EagleTreeDraftEngine
-from dsdreal.proto.messages import SpeculateReply, SpeculateRequest
-from dsdreal.target.eagle_tree_remote import RemoteTopK
+from dspec_real.draft.eagle_tree_codec import pack_hidden, pack_tree, unpack_hidden, unpack_tree
+from dspec_real.draft.engine_eagle_tree import EagleTreeDraftEngine
+from dspec_real.proto.messages import SpeculateReply, SpeculateRequest
+from dspec_real.target.eagle_tree_remote import RemoteTopK
 
 
 class _Head:

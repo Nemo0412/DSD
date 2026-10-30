@@ -7,12 +7,12 @@ import time
 
 import pytest
 
-from dsdreal.metrics.collector import collect
-from dsdreal.metrics.records import RequestRecord
-from dsdreal.policy.routing import make_target_policy
-from dsdreal.router.frontend import Router
-from dsdreal.router.target_server import TargetServer
-from dsdreal.workload.trace import WorkItem
+from dspec_real.metrics.collector import collect
+from dspec_real.metrics.records import RequestRecord
+from dspec_real.policy.routing import make_target_policy
+from dspec_real.router.frontend import Router
+from dspec_real.router.target_server import TargetServer
+from dspec_real.workload.trace import WorkItem
 
 
 class _Out:

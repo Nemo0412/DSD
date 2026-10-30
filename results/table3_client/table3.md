@@ -1,4 +1,4 @@
-### dsdSim convention
+### DSpec convention
 
 | Method | Metric | N=1 | N=2 | N=4 | N=7 |
 |---|---|---|---|---|---|

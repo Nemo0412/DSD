@@ -12,7 +12,7 @@ OUT=${1:-runs/stepD}; mkdir -p "$OUT"
 HEAD=${EAGLE3_HEAD:-yuhuili/EAGLE3-LLaMA3.1-Instruct-8B}
 COMMON=(--n-requests 60 --per-draft-rps 2 --gamma 4 --rtt-ms 10 --chat-template --no-prefix-caching)
 
-CUDA_VISIBLE_DEVICES=$T $DSD_PY -m dsdreal.experiments.driver "${COMMON[@]}" --native-eagle3 "$HEAD" \
+CUDA_VISIBLE_DEVICES=$T $DSD_PY -m dspec_real.experiments.driver "${COMMON[@]}" --native-eagle3 "$HEAD" \
     --out "$OUT/native" > "$OUT/native.log" 2>&1 || { echo "native failed"; tail -20 "$OUT/native.log"; exit 1; }
 DSD_DRAFT_KIND=eagle3 DSD_DRAFT_MODEL=$HEAD scripts/run_nto1.sh "$OUT/remote" 1 "$T" "$D" \
     "${COMMON[@]}" --draft-kind eagle3 > "$OUT/remote.log" 2>&1 || { echo "remote failed"; tail -30 "$OUT/remote.log"; exit 1; }
@@ -31,7 +31,7 @@ PY
 acc=$?
 
 L=(--n-requests 30 --max-output-tokens 96 --per-draft-rps 2 --gamma 4 --rtt-ms 10 --chat-template --no-prefix-caching --dtype float32)
-CUDA_VISIBLE_DEVICES=$T $DSD_PY -m dsdreal.experiments.driver "${L[@]}" --out "$OUT/fp32_base" \
+CUDA_VISIBLE_DEVICES=$T $DSD_PY -m dspec_real.experiments.driver "${L[@]}" --out "$OUT/fp32_base" \
     > "$OUT/fp32_base.log" 2>&1 || { echo "fp32 baseline failed"; exit 1; }
 DSD_DRAFT_KIND=eagle3 DSD_DRAFT_MODEL=$HEAD DSD_DRAFT_DTYPE=float32 scripts/run_nto1.sh "$OUT/fp32_eagle3" 1 "$T" "$D" \
     "${L[@]}" --draft-kind eagle3 > "$OUT/fp32_eagle3.log" 2>&1 || { echo "fp32 eagle3 failed"; exit 1; }

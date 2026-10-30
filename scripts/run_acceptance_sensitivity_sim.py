@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rerun DSD-Sim on perturbed acceptance_seq traces (discrete-event, not first-order map)."""
+"""Rerun DSpec on perturbed acceptance_seq traces (discrete-event, not first-order map)."""
 
 from __future__ import annotations
 

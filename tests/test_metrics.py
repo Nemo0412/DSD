@@ -6,8 +6,8 @@ import math
 
 import pytest
 
-from dsdreal.metrics.collector import attach_rounds, collect, summarize
-from dsdreal.metrics.records import RequestRecord, RoundRecord
+from dspec_real.metrics.collector import attach_rounds, collect, summarize
+from dspec_real.metrics.records import RequestRecord, RoundRecord
 
 PROMPT = [1, 2, 3, 4]
 

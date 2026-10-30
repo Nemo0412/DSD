@@ -57,7 +57,7 @@ self.propose([[]] * 1024, np.zeros(1024, np.int32),
 - **flashinfer JIT 直接 `subprocess.run(["ninja", ...])`**，而 venv 的 `bin/` 不在 PATH 上
   → `PermissionError: [Errno 13] Permission denied: 'ninja'`，表现为
   「Engine core initialization failed」。修法在 `scripts/env.sh`：把
-  `$DSD_VENV/bin` 放进 PATH。**任何 dsd-real 的入口都要先 source 它。**
+  `$DSD_VENV/bin` 放进 PATH。**任何 DSpec 的入口都要先 source 它。**
 - **WSL 强制 `spawn`**（NVML 与 fork 不兼容），所以每个会构造 `LLM` 的脚本都必须有
   `if __name__ == "__main__":` 守卫，否则 spawn 重新 import `__main__` 会递归建引擎。
 
@@ -69,7 +69,7 @@ self.propose([[]] * 1024, np.zeros(1024, np.int32),
 scripts/env.sh                  # PATH / venv，任何入口先 source
 scripts/verify_vllm_hooks.py    # K1–K7，--probe kN 可单跑
 scripts/dsd_probe_sched.py      # CountingScheduler / BucketQueueScheduler / LABRequestQueue 原型
-dsdreal/target/plugin.py        # entry point：register() / register_probe()
+dspec_real/target/plugin.py        # entry point：register() / register_probe()
 pyproject.toml                  # vllm.general_plugins 注册
 runs/stage0_probes.json         # 结构化结果
 ```
@@ -80,4 +80,4 @@ runs/stage0_probes.json         # 结构化结果
 ## 下一步
 
 Stage 1（骨架、schema、配置，2–3 天，不用 GPU）。**schema 先于代码。**
-并行动作：给 DSD-Sim 作者发信问 §11 的六个问题，Q1（`acceptance_seq` 约定）决定 L2 是不是必需。
+并行动作：给 DSpec 作者发信问 §11 的六个问题，Q1（`acceptance_seq` 约定）决定 L2 是不是必需。

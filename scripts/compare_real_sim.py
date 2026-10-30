@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-"""Real vs simulated Table 3, side by side, in dsdSim's metric convention.
+"""Real vs simulated Table 3, side by side, in DSpec's metric convention.
 
     python scripts/compare_real_sim.py runs/table3 sim/results/measured > runs/table3/real_vs_sim.md
 
 Real rows come from <real>/<method>_N<n>/dsd_metrics.json ("sim" block of
-system_metrics, i.e. the collector's dsdSim-convention numbers); sim rows from
+system_metrics, i.e. the collector's DSpec-convention numbers); sim rows from
 <sim>/<method>_N<n>.json ("table"). EAGLE3 is compared against the sim's
 `eagle3_chain` proxy (plain chain drafting at the head's cost): the sim's own
 EAGLE model ends a request at its first zero-acceptance round

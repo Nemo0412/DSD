@@ -13,10 +13,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from dsdreal.draft.engine_echo import EchoDraftEngine
-from dsdreal.policy.routing import RoundRobin
-from dsdreal.proto.transport import InProcessDraftClient
-from dsdreal.target import proposer
+from dspec_real.draft.engine_echo import EchoDraftEngine
+from dspec_real.policy.routing import RoundRobin
+from dspec_real.proto.transport import InProcessDraftClient
+from dspec_real.target import proposer
 
 
 class _FakeSpecConfig:

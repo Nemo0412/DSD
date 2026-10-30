@@ -99,8 +99,8 @@
       585677
     ],
     "discovered": [
-      "dsdreal -> dsdreal.target.plugin:register",
-      "dsdreal_probe -> dsdreal.target.plugin:register_probe",
+      "dspec_real -> dspec_real.target.plugin:register",
+      "dspec_real_probe -> dspec_real.target.plugin:register_probe",
       "lora_filesystem_resolver -> vllm.plugins.lora_resolvers.filesystem_resolver:register_filesystem_resolver",
       "lora_hf_hub_resolver -> vllm.plugins.lora_resolvers.hf_hub_resolver:register_hf_hub_resolver"
     ],

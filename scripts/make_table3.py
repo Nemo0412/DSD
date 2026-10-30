@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Collect <out>/<method>_N<n>/dsd_metrics.json into the paper's Table 3 layout.
 
-Two blocks: dsdSim's metric convention (what the simulator reports, so rows
+Two blocks: DSpec's metric convention (what the simulator reports, so rows
 line up with sim runs) and the standard serving convention.
 """
 from __future__ import annotations
@@ -53,7 +53,7 @@ def main(out: str) -> int:
            ("TPOT (ms)", lambda s: s["standard"]["tpot_ms"]["mean"], 1),
            ("Thr. (req/s)", lambda s: s["standard"]["throughput_rps"], 2),
            ("mean accept len", lambda s: s["standard"]["mean_acceptance_length"], 2)]
-    print(block(runs, "dsdSim convention", sim))
+    print(block(runs, "DSpec convention", sim))
     print()
     print(block(runs, "Standard convention", std))
     bad = [k for k, s in runs.items() if not s.get("accounting_ok", True)]

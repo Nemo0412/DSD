@@ -84,9 +84,9 @@ def main() -> int:
     #    RemoteDraftProposer mints a fresh one per (fresh vllm_config
     #    instantiation x slot), so stale VllmDraftEngine.state entries from a
     #    prior gamma are just harmless dead weight for this short-lived run.
-    from dsdreal.draft.engine_vllm import VllmDraftEngine
-    from dsdreal.proto.transport import InProcessDraftClient
-    from dsdreal.target import proposer
+    from dspec_real.draft.engine_vllm import VllmDraftEngine
+    from dspec_real.proto.transport import InProcessDraftClient
+    from dspec_real.target import proposer
 
     draft_llm = LLM(model=DRAFT_MODEL, gpu_memory_utilization=DRAFT_GPU_FRAC, **common)
     draft_engine = VllmDraftEngine(draft_llm, node_id="d0")
@@ -98,7 +98,7 @@ def main() -> int:
             model=TARGET_MODEL, gpu_memory_utilization=TARGET_GPU_FRAC,
             speculative_config={
                 "method": "custom_class",
-                "model": "dsdreal.target.proposer.RemoteDraftProposer",
+                "model": "dspec_real.target.proposer.RemoteDraftProposer",
                 "num_speculative_tokens": gamma,
             },
             **common,

@@ -113,7 +113,7 @@ run_pair() {
     ready="$OUT/target_t${j}.ready"
     rm -f "$ready"
     if [ "$kind" = eagle_tree ]; then
-      CUDA_VISIBLE_DEVICES=$j "$PY" -m dsdreal.router.eagle_tree_server \
+      CUDA_VISIBLE_DEVICES=$j "$PY" -m dspec_real.router.eagle_tree_server \
         --base-model "$target" --ea-model "$draft" \
         --bind "tcp://127.0.0.1:0" --ready-file "$ready" --reuse \
         "${daddrs[@]}" --dtype bfloat16 --device 0 \
@@ -123,7 +123,7 @@ run_pair() {
     else
       extra=()
       [ "$kind" = eagle3 ] && extra+=(--draft-kind eagle3)
-      CUDA_VISIBLE_DEVICES=$j "$PY" -m dsdreal.router.target_server \
+      CUDA_VISIBLE_DEVICES=$j "$PY" -m dspec_real.router.target_server \
         --target-model "$target" --bind "tcp://127.0.0.1:0" --ready-file "$ready" --reuse \
         "${daddrs[@]}" --gamma "$gamma" --rtt-ms 0 --dtype bfloat16 \
         --no-prefix-caching --gpu-frac "$frac" --max-model-len 1024 \
@@ -152,7 +152,7 @@ run_pair() {
     echo ">>> $name $ds n=$n" | tee -a "$pair_out/start.txt"
     chat_args=()
     [ "$chat" = chat ] && chat_args+=(--chat-template)
-    "$PY" -m dsdreal.router.frontend "${taddrs[@]}" --policy rr \
+    "$PY" -m dspec_real.router.frontend "${taddrs[@]}" --policy rr \
       --target-model "$target" --n-drafters "$N_DRAFTERS" --seed 0 \
       --trace "$TRACES/${ds}.jsonl" --prompts "$PROMPTS/${prompt_files[$k]}" \
       --n-requests "$n" --per-draft-rps 0.5 --out "$ds_out" \

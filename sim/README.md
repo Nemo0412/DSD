@@ -1,9 +1,9 @@
-# sim/: dsdSim configured to match the dsd-real setup
+# sim/: the DSpec simulator configured to match the real system
 
-This directory runs the unmodified DSD-Sim simulator
-([yfzzzyyls/dsdSim](https://github.com/yfzzzyyls/dsdSim), MIT) on our small
+This directory runs the DSpec simulator (`src/`, originally
+[yfzzzyyls/dsdSim](https://github.com/yfzzzyyls/dsdSim), MIT) on our small
 "Table 3" setup and writes results with the same metric names as
-`scripts/make_table3.py`'s **dsdSim convention** block. The clone itself is
+`scripts/make_table3.py`'s **DSpec convention** block. `src/` itself is
 never edited. Everything specific to us is in this directory: a config
 generator, a thin runtime shim, and a latency calibration file.
 
@@ -15,19 +15,19 @@ prediction yet. See [Calibrating](#calibrating).
 |---|---|
 | `calibration.json` | every latency constant the sim uses (PLACEHOLDERS) |
 | `make_config.py` | (method, N, calibration, per_draft_rps, rtt, n_requests, seed, mode) → `config.yaml` + retimed `trace.jsonl` |
-| `dsdsim_shim.py` | import fixes + calibrated latency provider + monkeypatches (no clone edits) |
+| `dspec_sim_shim.py` | import fixes + calibrated latency provider + monkeypatches (no clone edits) |
 | `run_sim.py` | runs one config through the shim → result JSON (table row, diagnostics, per-request records) |
 | `run_sweep.py` | methods × N sweep → `results/<method>_N<n>.json` + `results/table3_sim.md` |
 | `results/` | placeholder-calibrated async sweep; `results/lockstep/` = the same sweep in lockstep mode |
 
 ## Setup
 
+The simulator is `src/` in this repository. `DSPEC_SIM_ROOT` defaults to the repository root.
+
 ```bash
-SCRATCH=/tmp/claude-1000/-home-scatyf3-dsd-real/296ff36d-0e9c-405f-8fa4-47eb7d19d1d3/scratchpad   # any dir
-git clone --depth 1 https://github.com/yfzzzyyls/dsdSim $SCRATCH/dsdSim
+SCRATCH=/tmp/dspec-sim                            # any dir
 uv venv --python 3.11 $SCRATCH/simvenv            # sklearn 1.5.2 has no wheels for 3.13+/3.14
 uv pip install --python $SCRATCH/simvenv/bin/python simpy "numpy<2.1" scikit-learn==1.5.2 joblib==1.5.2 pyyaml
-export DSDSIM_ROOT=$SCRATCH/dsdSim
 SIMPY=$SCRATCH/simvenv/bin/python
 ```
 
@@ -55,7 +55,7 @@ $SIMPY sim/run_sweep.py --table-only
 `--force` (re-run existing results), `--python` (sim venv interpreter), and
 extra `make_config.py` arguments after `--`.
 
-**How dsdSim is normally invoked:** `python src/sim.py --config X.yaml`
+**How DSpec is normally invoked:** `python src/sim.py --config X.yaml`
 (`sim.py:main`, which prints a `===METRICS_JSON===` block). Without VIDUR
 that command **cannot even start**. `src/performance/__init__.py` imports
 `vidur_realtime.py`, which raises `FileNotFoundError` at import time when
@@ -66,15 +66,15 @@ same `sim` module through the shim and calls the same functions `main` does
 
 ## Mapping: our real setup ↔ sim config
 
-| real (dsd-real) | sim config written by `make_config.py` |
+| real (DSpec) | sim config written by `make_config.py` |
 |---|---|
-| 1 target, Llama-3.1-8B bf16, A6000 | one device `t0`, `role: target`. Latency comes from `dsdreal_calib.target` (calibration.json) |
+| 1 target, Llama-3.1-8B bf16, A6000 | one device `t0`, `role: target`. Latency comes from `dspec_real_calib.target` (calibration.json) |
 | vLLM max_num_seqs 64 | `t0.batch_size: 64`, `scheduler.{prefill,decode}.max_batch_requests: 64` |
 | continuous batching (never waits) | `t0.batch_window_ms: 0.01`, `scheduler.*.max_wait_ms: 0`. A window of 0 would mean one job per batch (`sim.py:1743-1751`), so it is kept just above 0 |
 | N drafters (Llama-3.2-1B / EAGLE3 head), RR routing | one **virtual** draft device per request, `d{p}_r{i}`, where `p = i mod N` is the physical drafter (see *Arrival process*) |
 | RTT 10 ms, no jitter (netem sleep) | per virtual drafter link `forward_latency_ms = response_latency_ms = 5`, `network.bandwidth_mbps: 0` (no serialization term), `link_capacity: 1e6` (no link queueing), `jitter_pct: 0` |
 | trace `gsm8k_trace_master.jsonl`, first `min(400,120N)` rows | `trace_path` → retimed copy with the same `prompt_tokens`, `target_tokens`, and `request_id` |
-| open-loop Poisson at `per_draft_rps*N`, seed | `arrival_ms` from the **same generator** as `dsdreal/workload/trace.py::poisson_arrivals` (identical arrival times for the same seed); `think_time: constant 0 ms` |
+| open-loop Poisson at `per_draft_rps*N`, seed | `arrival_ms` from the **same generator** as `dspec_real/workload/trace.py::poisson_arrivals` (identical arrival times for the same seed); `think_time: constant 0 ms` |
 | Vanilla, γ=4 | `gamma: 4`, `speculation.gamma_policy.type: constant` |
 | SpecDec++ (min 2, max 8, threshold 0.7) | `gamma_policy: {type: specpp, min_gamma: 2, max_gamma: 8, stop_threshold: 0.7}` |
 | EAGLE3 (remote head, chain depth 4) | `speculation.framework: eagle`, `eagle: {beam_width: 1, max_depth: 4, min_depth: 1, prune 0, load_control off}` (**broken for our purpose**, see below). Also `eagle3_chain` = vanilla framework, γ=4, EAGLE3 draft latency |
@@ -82,7 +82,7 @@ same `sim` module through the shim and calls the same functions `main` does
 
 ## Latency code paths and calibration
 
-With VIDUR absent, dsdSim gets every latency from a *performance provider*.
+With VIDUR absent, DSpec gets every latency from a *performance provider*.
 There are three paths:
 
 | path | sim code | what native `default` provider does | what we do |
@@ -94,10 +94,10 @@ There are three paths:
 
 The native provider cannot express a fixed per-step cost or any batch-size
 dependence, so the shim installs its own provider
-(`performance_model.type: dsdreal_calibrated`). The target's batch-latency
+(`performance_model.type: dspec_real_calibrated`). The target's batch-latency
 method is monkeypatched so that the combine rule and lockstep mode (below)
 work. Each device's YAML entry carries a copy of its calibration block
-(`dsdreal_calib`), so a generated `config.yaml` is self-describing.
+(`dspec_real_calib`), so a generated `config.yaml` is self-describing.
 
 Placeholder values (`calibration.json`): prefill 20 ms + 0.15 ms/token;
 verify 25 ms + 0.10 ms per verified position (B=1, γ=4 → 25.5 ms;
@@ -121,7 +121,7 @@ Replace the placeholders with values measured on the A6000, then re-run
   mode only).
 * Acceptance: build the profile with `scripts/build_acceptance_profile.py`
   (static γ=8 calibration run), then pass `--acceptance-profile
-  runs/…/profile.json`. The shim answers every dsdSim acceptance lookup
+  runs/…/profile.json`. The shim answers every DSpec acceptance lookup
   from it instead of the joblib model. Do this for EAGLE3 too, because the
   joblib model is the 1B drafter's.
 
@@ -131,7 +131,7 @@ Items marked **[major]** can move the comparison by more than
 calibration error.
 
 1. **[major] Execution model: async (sim) vs. lockstep (ours).** In
-   dsdSim every request runs its own draft → send → queue → verify →
+   DSpec every request runs its own draft → send → queue → verify →
    return loop, and the target keeps serving other requests while a
    request is drafting or on the wire. Our `RemoteDraftProposer.propose()`
    is called inside the vLLM engine step and blocks on
@@ -156,7 +156,7 @@ calibration error.
    cumulative rejection passes 0.7 at position 2 for every context, so
    `SpecPPGammaPolicy` (chosen once per conversation from the prompt
    length) always returns `min_gamma` = 2 (diagnostics: mean γ 2.00).
-4. **[major] Conversation length semantics.** A dsdSim vanilla/SpecDec++
+4. **[major] Conversation length semantics.** A DSpec vanilla/SpecDec++
    conversation runs exactly `ceil(target_tokens/γ)` rounds, **counting
    drafted tokens, not accepted ones** (sim.py:2921, 3025). It then ends
    with only the accepted tokens as output (diagnostics "output/target
@@ -178,7 +178,7 @@ calibration error.
    it as required (`eagle3`) but recommend the `eagle3_chain` proxy (vanilla
    chain drafting, γ=4, EAGLE3-head draft latency) plus an EAGLE3
    acceptance profile.
-6. **Arrival process.** dsdSim is closed-loop by design and refuses
+6. **Arrival process.** DSpec is closed-loop by design and refuses
    `think_time.enabled: false` (sim.py:4684). We use trace replay with
    rewritten `arrival_ms` (Poisson, same generator and seed as the real
    driver) and a constant 0 ms think time. That turns replay open-loop, but
@@ -189,7 +189,7 @@ calibration error.
    hide that wait from TTFT. We give every request its own virtual draft
    device, so drafters never queue (and, in async mode, never batch or
    contend). The physical drafter index only labels requests (RR over N).
-7. **Batching.** dsdSim has two batching stages: a per-phase
+7. **Batching.** DSpec has two batching stages: a per-phase
    scheduler, then the target window, each capped at 64 jobs. There is no
    admission limit on concurrent *requests*, as vLLM's max_num_seqs has,
    and no KV-cache model beyond a 1M-token admission counter. The target
@@ -202,7 +202,7 @@ calibration error.
     ignored (bandwidth 0), so EAGLE3 hidden-state transfer (~24 KB/token) is
     free.
 
-### Metric definitions (dsdSim `Metrics.summary`, sim.py:893, and `_collect_metrics_json`, sim.py:5259)
+### Metric definitions (DSpec `Metrics.summary`, sim.py:893, and `_collect_metrics_json`, sim.py:5259)
 
 * **TTFT** = time from conversation start (= arrival here) to the end
   (response received) of the first verify round with ≥ 1 accepted token.
@@ -219,33 +219,33 @@ calibration error.
   verify jobs and is **not** req/s.
 * **accept ratio** = Σ accepted / Σ drafted (no bonus).
 
-`dsdreal/metrics/collector.py`'s `sim` block uses the same rules. One
-difference: our span starts at the first *arrival*, while dsdSim's starts
+`dspec_real/metrics/collector.py`'s `sim` block uses the same rules. One
+difference: our span starts at the first *arrival*, while DSpec's starts
 at the first prefill job reaching the target (arrival + 5 ms).
 
 Each result JSON also contains `diagnostics`: mean γ, accepted/round,
 output/target ratio, target utilization, jobs per batch, TTFT/TPOT
-percentiles, dsdSim's ttft/decode breakdowns, and `requests`: one record
+percentiles, DSpec's ttft/decode breakdowns, and `requests`: one record
 per request with the `validate.py::load_actual_run` field names, plus
 `target_tokens` and `rounds`.
 
-### Shim details (all in `dsdsim_shim.py`)
+### Shim details (all in `dspec_sim_shim.py`)
 
 * Stub module for `performance.vidur_realtime`, so the sim imports without
   VIDUR.
 * `src.sim` alias: `acceptance/regressor.py` does `from src import sim`.
   The alias stops it from importing the module a second time.
-* Provider factory wrapper that adds `type: dsdreal_calibrated`.
+* Provider factory wrapper that adds `type: dspec_real_calibrated`.
 * `TargetServer._estimate_batch_latency_from_provider` replaced: combine
   rule, plus the lockstep extra.
 * `DraftServer._lookup_acceptance` wrapped (only active when
-  `acceptance.dsdreal_profile` is set).
+  `acceptance.dspec_real_profile` is set).
 * The acceptance RandomForest's `n_jobs` is set from −1 to 1 after loading:
   identical predictions, ~6× faster. `pending_bucket`/`queue_bucket` are
   set to 1e9 because the classifier does not use those features and they
   only defeated the cache.
 
-## Placeholder-calibrated results (async = dsdSim's own model; seed 0)
+## Placeholder-calibrated results (async = DSpec's own model; seed 0)
 
 See `results/table3_sim.md` (and `results/lockstep/table3_sim.md`).
 

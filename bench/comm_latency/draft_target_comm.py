@@ -28,8 +28,8 @@ ACCEPT_PER_STEP = 3
 
 
 def serve(bind_host: str, advertise_host: str, ready_file: str, done_file: str) -> None:
-    from dsdreal.draft.engine_echo import EchoDraftEngine
-    from dsdreal.draft.server import DraftServer
+    from dspec_real.draft.engine_echo import EchoDraftEngine
+    from dspec_real.draft.server import DraftServer
 
     server = DraftServer(EchoDraftEngine("d0"), f"tcp://{bind_host}:0").start()
     endpoint = server.bound_addr  # tcp://host:port
@@ -47,8 +47,8 @@ def serve(bind_host: str, advertise_host: str, ready_file: str, done_file: str) 
 
 
 def measure(addr: str, out_path: str, runs: int, steps: int) -> None:
-    from dsdreal.proto.messages import SpeculateRequest
-    from dsdreal.proto.transport import ZmqDraftClient
+    from dspec_real.proto.messages import SpeculateRequest
+    from dspec_real.proto.transport import ZmqDraftClient
 
     client = ZmqDraftClient({"d0": addr}, timeout_s=30.0)
     new = not os.path.exists(out_path) or os.path.getsize(out_path) == 0

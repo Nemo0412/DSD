@@ -6,7 +6,7 @@
 
 1. Run the target model with speculation OFF to record each prompt's real
    greedy continuation (the trace).
-2. Wire dsdreal.target.proposer.RemoteDraftProposer via vLLM's native
+2. Wire dspec_real.target.proposer.RemoteDraftProposer via vLLM's native
    `method="custom_class"` (confirmed available on this pin -- K6), backed
    by an InProcessDraftClient over a ReplayDraftEngine loaded with that
    trace.
@@ -89,16 +89,16 @@ def main() -> int:
     traces = {tuple(p): c for p, c in zip(prompt_ids, baseline)}
 
     # 2. Wire the replay proposer via native custom_class.
-    from dsdreal.draft.engine_replay import ReplayDraftEngine
-    from dsdreal.proto.transport import InProcessDraftClient
-    from dsdreal.target import proposer
+    from dspec_real.draft.engine_replay import ReplayDraftEngine
+    from dspec_real.proto.transport import InProcessDraftClient
+    from dspec_real.target import proposer
 
     engine = ReplayDraftEngine(traces, node_id="d0")
     proposer.configure(InProcessDraftClient(engine, node_id="t0"))
 
     llm = build_llm(speculative_config={
         "method": "custom_class",
-        "model": "dsdreal.target.proposer.RemoteDraftProposer",
+        "model": "dspec_real.target.proposer.RemoteDraftProposer",
         "num_speculative_tokens": GAMMA,
     })
     replayed = greedy(llm, PROMPTS)

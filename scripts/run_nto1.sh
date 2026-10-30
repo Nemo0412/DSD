@@ -67,7 +67,7 @@ echo "drafters ready (N=$N, $per_gpu per GPU on $DGPUS, frac $frac)"
     printf '}, "gpus": "%s"}\n' "$(nvidia-smi --query-gpu=index,name --format=csv,noheader | tr '\n' ';')"
 } > "$OUT/placement.json"
 
-CUDA_VISIBLE_DEVICES=$TGPU "$PY" -m dsdreal.experiments.driver \
+CUDA_VISIBLE_DEVICES=$TGPU "$PY" -m dspec_real.experiments.driver \
     --target-model "$TARGET_MODEL" "${addrs[@]}" --out "$OUT" "$@" 2>&1 | tee "$OUT/driver.log" \
     | grep -v "^\[rank0\]:  \|WARNING\|Loading safetensors"
 rc=${PIPESTATUS[0]}

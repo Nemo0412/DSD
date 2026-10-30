@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Fit sim/calibration.json latency constants from a real dsd-real run.
+"""Fit sim/calibration.json latency constants from a real DSpec run.
 
 Reads <run>/steps.jsonl (one row per sequence per propose() call; rows of
 the same call share t_send_ms) and fits:

@@ -36,13 +36,13 @@ done
 taddrs=()
 for ((j = 0; j < ${#tg[@]}; j++)); do
     r="$OUT/target_t$j.ready"; rm -f "$r"
-    CUDA_VISIBLE_DEVICES=${tg[$j]} "$PY" -m dsdreal.router.target_server --target-model "$TARGET_MODEL" \
+    CUDA_VISIBLE_DEVICES=${tg[$j]} "$PY" -m dspec_real.router.target_server --target-model "$TARGET_MODEL" \
         --bind "tcp://127.0.0.1:0" --ready-file "$r" "${daddrs[@]}" "${targs[@]}" \
         > "$OUT/target_t$j.log" 2>&1 &
     pids+=($!); wait_ready "$r" "$!" "$OUT/target_t$j.log"   # sequential, same reason
     taddrs+=(--target-addr "t$j=$(cat "$r")")
 done
 echo "N=$N drafters, M=${#tg[@]} targets ready; policy=$POLICY"
-"$PY" -m dsdreal.router.frontend "${taddrs[@]}" --policy "$POLICY" --target-model "$TARGET_MODEL" \
+"$PY" -m dspec_real.router.frontend "${taddrs[@]}" --policy "$POLICY" --target-model "$TARGET_MODEL" \
     --n-drafters "$N" --out "$OUT" "${wargs[@]}" 2>&1 | tee "$OUT/router.log" | grep -v "WARNING"
 rc=${PIPESTATUS[0]}; echo "router exit $rc"; exit $rc

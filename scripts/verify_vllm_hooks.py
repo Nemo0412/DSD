@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Stage 0 kill-criteria probes for dsd-real.
+"""Stage 0 kill-criteria probes for DSpec.
 
 Each probe is a go/no-go gate on the "plug vLLM, don't fork it" plan.
 GPU probes run in their own subprocess so a crash contains itself.
@@ -42,7 +42,7 @@ def _quiet_env() -> None:
 def patch_drafter(factory):
     """Replace GPUModelRunner.drafter right after construction.
 
-    This is the exact mechanism dsdreal/target/plugin.py will use, so the
+    This is the exact mechanism dspec_real/target/plugin.py will use, so the
     probe validates the install path as well as the behaviour under test.
     """
     from vllm.v1.worker.gpu_model_runner import GPUModelRunner
@@ -327,11 +327,11 @@ def probe_k5():
 
     eps = [e for e in entry_points(group="vllm.general_plugins")]
     names = [f"{e.name} -> {e.value}" for e in eps]
-    if not any(e.name == "dsdreal_probe" for e in eps):
+    if not any(e.name == "dspec_real_probe" for e in eps):
         return verdict(
             "k5",
             False,
-            "entry point 'dsdreal_probe' not registered; run: "
+            "entry point 'dspec_real_probe' not registered; run: "
             "pip install -e . in the probe venv. discovered=" + str(names),
             discovered=names,
         )

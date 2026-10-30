@@ -1,17 +1,17 @@
 #!/usr/bin/env python
-"""Generate a dsdSim YAML config (+ retimed trace) mirroring one dsd-real run.
+"""Generate a DSpec YAML config (+ retimed trace) mirroring one real-system run.
 
     python sim/make_config.py --method vanilla --n-drafters 4 \
         --calibration sim/calibration.json --out-dir sim/configs/vanilla_N4
 
 Writes <out-dir>/config.yaml and <out-dir>/trace.jsonl. Pure stdlib + PyYAML
-(no dsdSim import needed), so it runs in either venv.
+(no DSpec import needed), so it runs in either venv.
 
 Topology written:
   * 1 target `t0` (Llama-3.1-8B, batch cap = max_num_seqs).
   * One *virtual* drafter device per request, id `d{p}_r{i}`, where p = i % N
     is the physical drafter the request is round-robined to (our RR routing).
-    dsdSim's DraftServer runs one conversation at a time, so giving every
+    DSpec's DraftServer runs one conversation at a time, so giving every
     request its own device is the only way to let a drafter serve many
     concurrent requests without hiding queueing time outside TTFT (see
     README, "Arrival process").
@@ -34,7 +34,7 @@ ACCEPTANCE_JOBLIB = "src/acceptance/llama3_1b_vs_8b_500.joblib"
 
 
 def poisson_arrivals(n: int, rate_rps: float, seed: int = 0) -> list[float]:
-    """Byte-for-byte the same generator as dsdreal/workload/trace.py
+    """Byte-for-byte the same generator as dspec_real/workload/trace.py
     (random.Random(seed), exponential gaps, first arrival at 0), so the sim
     replays exactly the arrival times the real driver uses."""
     if rate_rps <= 0:
@@ -49,7 +49,7 @@ def poisson_arrivals(n: int, rate_rps: float, seed: int = 0) -> list[float]:
 
 def load_trace(path: Path) -> list[dict]:
     rows = [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
-    rows.sort(key=lambda d: float(d["arrival_ms"]))  # as dsdreal load_sim_trace
+    rows.sort(key=lambda d: float(d["arrival_ms"]))  # as dspec_real load_sim_trace
     return rows
 
 
@@ -59,8 +59,8 @@ def default_n_requests(n: int) -> int:
 
 def load_replay(run_dir: str | Path) -> dict[str, dict]:
     """request_id -> {"gamma": int, "accepted": [per verified round]} from a
-    real dsd-real run (steps.jsonl: one row per verified round, `i` = round
-    index, accepted excludes the bonus token -- dsdSim's own convention)."""
+    real DSpec run (steps.jsonl: one row per verified round, `i` = round
+    index, accepted excludes the bonus token -- DSpec's own convention)."""
     per: dict[str, list[tuple[int, int, int]]] = {}
     for line in (Path(run_dir) / "steps.jsonl").read_text().split("\n"):
         if line.strip():
@@ -74,7 +74,7 @@ def load_replay(run_dir: str | Path) -> dict[str, dict]:
 
 
 def build(args) -> tuple[dict, list[dict]]:
-    root = Path(args.dsdsim_root or os.environ.get("DSDSIM_ROOT", "")).resolve()
+    root = Path(args.dspec_sim_root or os.environ.get("DSPEC_SIM_ROOT", "")).resolve()
     calib_all = json.loads(Path(args.calibration).read_text())
     n = args.n_drafters
     n_req = args.n_requests or default_n_requests(n)
@@ -92,7 +92,7 @@ def build(args) -> tuple[dict, list[dict]]:
         rid, did = str(r["request_id"]), f"d{i % n}_r{i:04d}"
         target = max(1, round(int(r["target_tokens"]) * args.target_tokens_scale))
         if rid in replay:
-            # dsdSim runs ceil(answer / gamma) rounds per conversation: make
+            # DSpec runs ceil(answer / gamma) rounds per conversation: make
             # that exactly the real run's number of verified rounds.
             rp = replay[rid]
             target = len(rp["accepted"]) * rp["gamma"]
@@ -127,7 +127,7 @@ def build(args) -> tuple[dict, list[dict]]:
         "batch_size": args.max_num_seqs,
         "batch_window_ms": float(sched.get("target_batch_window_ms", 0.01)),
         "cluster": "default",
-        "dsdreal_calib": calib,
+        "dspec_real_calib": calib,
     }]
     connections = []
     draft_model = ("yuhuili/EAGLE3-LLaMA3.1-Instruct-8B" if args.method == "eagle"
@@ -141,7 +141,7 @@ def build(args) -> tuple[dict, list[dict]]:
             "gpu": f"drafter_{did.split('_r')[0]}",
             "capability": 1.0,
             "cluster": "default",
-            "dsdreal_calib": calib,
+            "dspec_real_calib": calib,
         })
         connections.append({
             "draft": did,
@@ -171,14 +171,14 @@ def build(args) -> tuple[dict, list[dict]]:
     if args.acceptance_profile:
         # joblib stays loaded (DraftServer requires a model object); the shim
         # answers every lookup from the measured profile instead.
-        spec["acceptance"]["dsdreal_profile"] = str(Path(args.acceptance_profile).resolve())
+        spec["acceptance"]["dspec_real_profile"] = str(Path(args.acceptance_profile).resolve())
     if replay_by_draft:
         # every conversation replays its real gamma and per-round accepted
         # counts (the shim; one virtual drafter per request = one sequence)
         rp_path = Path(args.out_dir).resolve() / "replay.json"
         rp_path.parent.mkdir(parents=True, exist_ok=True)
         rp_path.write_text(json.dumps(replay_by_draft))
-        spec["acceptance"]["dsdreal_replay"] = str(rp_path)
+        spec["acceptance"]["dspec_real_replay"] = str(rp_path)
     if args.acceptance_fixed_rate is not None:
         spec["acceptance"] = {"disable_model": True, "default_rate": args.acceptance_fixed_rate}
     if args.method == "specpp":
@@ -201,7 +201,7 @@ def build(args) -> tuple[dict, list[dict]]:
     lane = {"pool": "default", "queue_policy": "fifo", "max_batch_requests": args.max_num_seqs,
             "max_wait_ms": wait, "max_queue_depth": 0}
     cfg = {
-        "_dsdreal": {
+        "_dspec_real": {
             "method": args.method, "n_drafters": n, "n_requests": n_req, "per_draft_rps": args.per_draft_rps,
             "total_rate_rps": rate, "rtt_ms": args.rtt_ms, "seed": args.seed, "mode": args.mode,
             "client_side": args.client_side,
@@ -226,11 +226,11 @@ def build(args) -> tuple[dict, list[dict]]:
         "router_params": {},
         "global_router": "disabled",
         "workload": {"arrival": "poisson", "rate_rps": rate},
-        # dsdSim refuses to run with think time disabled; a constant 0 ms think
+        # DSpec refuses to run with think time disabled; a constant 0 ms think
         # time turns trace replay into open-loop arrivals.
         "think_time": {"enabled": True, "distribution": "constant", "mean_ms": 0.0, "min_ms": 0.0},
         "network": {"enabled": True, "bandwidth_mbps": 0.0, "link_capacity": 1_000_000, "jitter_pct": 0.0},
-        "performance_model": {"type": "dsdreal_calibrated"},
+        "performance_model": {"type": "dspec_real_calibrated"},
         "mixed_batching": True,
         "burn_in_ms": 0.0,
         "scheduler": {"type": "baseline", "prefill": dict(lane), "decode": dict(lane),
@@ -251,7 +251,7 @@ def parse(argv=None):
     ap.add_argument("--n-requests", type=int, default=None, help="default min(400, 120*N)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--mode", choices=("async", "lockstep"), default="async",
-                    help="async = dsdSim's native per-request pipeline; lockstep = RTT+drafting "
+                    help="async = DSpec's native per-request pipeline; lockstep = RTT+drafting "
                          "charged inside every target step (emulates our blocking proposer)")
     ap.add_argument("--gamma", type=int, default=4, help="static gamma (vanilla); SpecDec++ fallback")
     ap.add_argument("--eagle-beam-width", type=int, default=1)
@@ -261,24 +261,24 @@ def parse(argv=None):
     ap.add_argument("--acceptance-fixed-rate", type=float, default=None,
                     help="bypass the joblib regressor: constant per-position acceptance")
     ap.add_argument("--acceptance-profile", default=None,
-                    help="dsd-real AcceptanceProfile JSON (scripts/build_acceptance_profile.py) "
+                    help="DSpec AcceptanceProfile JSON (scripts/build_acceptance_profile.py) "
                          "to use instead of the joblib classifier (needs the shim)")
     ap.add_argument("--draft-profile", default=None,
                     help="key of calibration.json 'draft' to use (default: the method's own); "
                          "e.g. --method vanilla --draft-profile eagle = chain drafting at EAGLE3-head cost")
     ap.add_argument("--target-tokens-scale", type=float, default=1.0,
-                    help="multiply every trace target_tokens (dsdSim runs ceil(target/gamma) rounds; "
+                    help="multiply every trace target_tokens (DSpec runs ceil(target/gamma) rounds; "
                          "gamma/L_real makes its round count match a real run with mean acceptance length L_real)")
     ap.add_argument("--max-num-seqs", type=int, default=64)
     ap.add_argument("--replay-from", default=None, metavar="RUN_DIR",
                     help="replay a real run's per-request gamma and per-round accepted counts "
                          "(its steps.jsonl) instead of sampling acceptance")
     ap.add_argument("--client-side", action="store_true",
-                    help="requests born at the drafters' clients (dsdSim's own scenario); see run_sim.py")
+                    help="requests born at the drafters' clients (DSpec's own scenario); see run_sim.py")
     ap.add_argument("--tail-ms", type=float, default=600_000.0,
                     help="sim horizon after the last arrival (must cover the slowest request)")
-    ap.add_argument("--trace", default=None, help="default $DSDSIM_ROOT/traces/gsm8k_trace_master.jsonl")
-    ap.add_argument("--dsdsim-root", default=None, help="default $DSDSIM_ROOT")
+    ap.add_argument("--trace", default=None, help="default $DSPEC_SIM_ROOT/traces/gsm8k_trace_master.jsonl")
+    ap.add_argument("--dspec-sim-root", default=None, help="default $DSPEC_SIM_ROOT")
     ap.add_argument("--out-dir", required=True)
     return ap.parse_args(argv)
 

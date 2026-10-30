@@ -13,9 +13,9 @@ import pytest
 torch = pytest.importorskip("torch")
 transformers = pytest.importorskip("transformers")
 
-from dsdreal.draft.eagle3_model import Eagle3Head, StepInput  # noqa: E402
-from dsdreal.draft.engine_eagle3 import Eagle3DraftEngine  # noqa: E402
-from dsdreal.proto.messages import SpeculateRequest  # noqa: E402
+from dspec_real.draft.eagle3_model import Eagle3Head, StepInput  # noqa: E402
+from dspec_real.draft.engine_eagle3 import Eagle3DraftEngine  # noqa: E402
+from dspec_real.proto.messages import SpeculateRequest  # noqa: E402
 
 HT = 48  # target hidden size
 

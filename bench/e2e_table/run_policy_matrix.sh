@@ -119,7 +119,7 @@ start_targets() {
   for ((j = 0; j < N_TARGETS; j++)); do
     ready="$OUT/target_t${j}.ready"
     rm -f "$ready"
-    CUDA_VISIBLE_DEVICES=$j "$PY" -m dsdreal.router.target_server \
+    CUDA_VISIBLE_DEVICES=$j "$PY" -m dspec_real.router.target_server \
       --target-model "$DSD_TARGET_MODEL" --bind "tcp://127.0.0.1:0" --ready-file "$ready" --reuse \
       "${daddrs[@]}" --gamma "$gamma" --rtt-ms 0 --dtype bfloat16 \
       --no-prefix-caching --gpu-frac "$frac" --max-model-len 1024 \
@@ -151,7 +151,7 @@ run_frontend() {
     chat_args=()
     [ "$chat" = chat ] && chat_args+=(--chat-template)
     echo ">>> $(basename "$pair_out") $policy $batching $ds n=$n" | tee -a "$pair_out/start.txt"
-    "$PY" -m dsdreal.router.frontend "${taddrs[@]}" --policy "$policy" \
+    "$PY" -m dspec_real.router.frontend "${taddrs[@]}" --policy "$policy" \
       --target-model "$DSD_TARGET_MODEL" --n-drafters "$N_DRAFTERS" --seed 0 \
       --trace "$TRACES/${ds}.jsonl" --prompts "$PROMPTS/${prompt_files[$k]}" \
       --n-requests "$n" --per-draft-rps 0.5 --out "$cell/$ds" \

@@ -1,8 +1,8 @@
-# dsd-real：从「管道跑通」到小规模 Table 3（Vanilla SD / SpecDec++ / EAGLE3）
+# DSpec：从「管道跑通」到小规模 Table 3（Vanilla SD / SpecDec++ / EAGLE3）
 
 ## 背景
 
-目标是在真实系统上小规模复现 paper 的 Table 3：分别给 Vanilla SD、SpecDec++、EAGLE3 测 TTFT、TPOT 和吞吐（req/s）。先做 n 个 draft 对 1 个 target，再扩到 n:m。真机数字要和 dsdSim（github.com/yfzzzyyls/dsdSim）尽量对得上。
+目标是在真实系统上小规模复现 paper 的 Table 3：分别给 Vanilla SD、SpecDec++、EAGLE3 测 TTFT、TPOT 和吞吐（req/s）。先做 n 个 draft 对 1 个 target，再扩到 n:m。真机数字要和 DSpec（github.com/yfzzzyyls/dsdSim）尽量对得上。
 
 ### 我们现在到哪了（分支 `stage0-transport-layer`）
 
@@ -20,7 +20,7 @@
 - 实验走的是离线 `LLM.generate`，请求没有到达时间，所以测不了 TTFT。
 - 只支持一个 target。
 
-### dsdSim 这边的情况（已对照仓库代码核实）
+### DSpec 这边的情况（已对照仓库代码核实）
 
 - **仓库里的东西复现不出 Table 3。** 没有 Table 3 的配置，也没有结果。VIDUR 延迟 profile（`thirdparty/Sai_speculative_vidur`、`data/vidur/cache`）不在仓库里，配置引用的 acceptance joblib 也不在，只有 `llama3_1b_vs_8b_500.joblib` 和两个 llama2 的 joblib。**结论：我们自己定义一张小 Table 3，sim 跑同样的配置来对比，不追 paper 上的绝对数字。**
 - **横轴 node scale** 指的是 drafter 数量。`fused_vs_distributed_sweep.py` 里 target 固定是 20 个。我们的小规模版本取 N ∈ {1,2,4,7} 个 drafter 对 1 个 target：8 张 L40S，一张给 target，剩 7 张。N=8 就得让两个 drafter 共用一张卡（T2 档）。
@@ -68,10 +68,10 @@
 ## 计划（按顺序做，每一步有门禁）
 
 ### Step A：online driver + 指标 + workload（后面所有行都依赖它）
-- `dsdreal/workload/trace.py`：
-  - 读 dsdSim 的 trace jsonl，按 `prompt_tokens` 配上真实 prompt。从 gsm8k 里按长度挑题目就够了。
+- `dspec_real/workload/trace.py`：
+  - 读 DSpec 的 trace jsonl，按 `prompt_tokens` 配上真实 prompt。从 gsm8k 里按长度挑题目就够了。
   - 按 `per_draft_rps × N` 生成到达时间。
-- `dsdreal/experiments/driver.py`：
+- `dspec_real/experiments/driver.py`：
   - 用进程内的 `LLMEngine`（`VLLM_ENABLE_V1_MULTIPROCESSING=0`），自己跑 `add_request` / `step()` 循环，每个请求在它的到达时间提交，`arrival_ts` 取预定到达时刻。
   - 不用 `AsyncLLM`：它总把 engine core 放到另一个进程，proposer 靠 `configure()` 设置的模块全局（client、记录钩子）在那个进程里不存在，而且两边时钟也不是同一个。
   - 每次 `step()` 返回后给新 token 打时间戳（和 transport 同一个 `perf_counter` 时钟）。
@@ -79,9 +79,9 @@
   - proposer 仍然按 slot 位置认请求，collector 用 prompt 前缀来关联：第一次 `propose` 带的 `prompt_token_ids` 就是 driver 那边的 prompt。
   - 加钩子 `configure(round_sink=...)`，每轮记录 `(seq_id, gamma, accepted, t_send, t_recv, draft_ms)`。
   - 这在已有的 `_stats_sink` 和 `SpeculateReply.sent_ms/recv_ms/draft_ms` 上扩展就行。
-- `dsdreal/metrics/collector.py` + `export.py`：
+- `dspec_real/metrics/collector.py` + `export.py`：
   - **两套口径并列导出**：sim 口径（不含 bonus、TTFT 到首个有接受的轮、TPOT 按 token 汇总、完成数/时间跨度）和标准口径。
-  - 同时导出 `validate.py::load_actual_run` 的格式，直接能喂给 dsdSim 的 `compare_runs`。
+  - 同时导出 `validate.py::load_actual_run` 的格式，直接能喂给 DSpec 的 `compare_runs`。
 - **门禁：** Llama-8B/1B 上跑 N=1 Vanilla。按 token 汇总的 TPOT 要和每轮 accepted 记账自洽（Σaccepted + 轮数 == 输出长度），fp32 仍然无损。
 
 ### Step B：Vanilla SD 这一行（n:1）
@@ -91,7 +91,7 @@
 - **门禁：** 拿到小 Table 3 的 Vanilla 行。随 N 增大，吞吐应先上升后饱和，趋势和 sim 一致。
 
 ### Step C：SpecDec++ 这一行
-- `dsdreal/policy/window.py`：移植 `SpecPPGammaPolicy`，语义保持一致：每个对话只选一次 γ，min 2、max 8、阈值 0.7。
+- `dspec_real/policy/window.py`：移植 `SpecPPGammaPolicy`，语义保持一致：每个对话只选一次 γ，min 2、max 8、阈值 0.7。
   - 每个位置的接受概率取自 Step B 标定运行的逐位置统计。sim 是从 regressor 里取，对齐的是同一种东西。
 - 改 proposer：
   - `num_speculative_tokens=8` 作为上限。
@@ -117,15 +117,15 @@
 - **门禁：** fp32 无损；接受长度和同数据上 vLLM 原生 `method=eagle3` 接近。原生 eagle3 只当参照。
 
 ### Step E：n:m + 跑 sim 对照
-- `dsdreal/router/frontend.py`：起 M 个 target 进程，router 在请求准入时选 target，策略有 RR 和 JSQ（JSQ 读 vLLM 的真实队列深度）。设计见 plan.md §3。
-- **sim 侧：** 写一个和我们配置对应的 dsdSim 配置（1 个 target、N 个 drafter，RTT 和 trace 都相同）。
+- `dspec_real/router/frontend.py`：起 M 个 target 进程，router 在请求准入时选 target，策略有 RR 和 JSQ（JSQ 读 vLLM 的真实队列深度）。设计见 plan.md §3。
+- **sim 侧：** 写一个和我们配置对应的 DSpec 配置（1 个 target、N 个 drafter，RTT 和 trace 都相同）。
   - VIDUR 缺失，延迟改用我们实测的数，做成查表或常数延迟 provider 接进去。
   - acceptance 用 `llama3_1b_vs_8b_500.joblib`。
   - 最后出一张 Real vs Sim 对照表，带相对误差。
 
 ## 关键文件
-- 修改：`dsdreal/target/proposer.py`、`dsdreal/proto/messages.py`、`dsdreal/target/plugin.py`（EAGLE3 的 hook）、`dsdreal/draft/engine_vllm.py`、`scripts/run_draft_server.py`
-- 新增：`dsdreal/{workload/trace.py, experiments/driver.py, metrics/collector.py, metrics/export.py, policy/window.py, draft/engine_eagle3.py, router/frontend.py}`、`scripts/slurm_table3_*.sbatch`
+- 修改：`dspec_real/target/proposer.py`、`dspec_real/proto/messages.py`、`dspec_real/target/plugin.py`（EAGLE3 的 hook）、`dspec_real/draft/engine_vllm.py`、`scripts/run_draft_server.py`
+- 新增：`dspec_real/{workload/trace.py, experiments/driver.py, metrics/collector.py, metrics/export.py, policy/window.py, draft/engine_eagle3.py, router/frontend.py}`、`scripts/slurm_table3_*.sbatch`
 - 复用：`policy/routing.py`（RR）、`netem/sleep.py`、`proto/transport.py::make_client`、`ZmqDraftClient` 的扇出逻辑
 
 ## 验证方式

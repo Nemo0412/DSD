@@ -4,7 +4,7 @@
 Draft and target servers are randomly distributed across the fat-tree.
 Compares TPOT (Time Per Output Token) and throughput between the two policies.
 
-Usage (from dsdSim/src/):
+Usage (from DSpec/src/):
     python ../experiments/benchmark_jsq_vs_random.py
 """
 from __future__ import annotations

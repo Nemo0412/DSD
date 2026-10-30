@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Print draft, verify, and end-to-end times from one dsd-real run."""
+"""Print draft, verify, and end-to-end times from one DSpec run."""
 from __future__ import annotations
 
 import json

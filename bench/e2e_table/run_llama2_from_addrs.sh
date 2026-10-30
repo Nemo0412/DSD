@@ -52,7 +52,7 @@ taddrs=()
 for ((j = 0; j < 4; j++)); do
   ready="$OUT/target_t${j}.ready"
   rm -f "$ready"
-  CUDA_VISIBLE_DEVICES=$j "$PY" -m dsdreal.router.target_server \
+  CUDA_VISIBLE_DEVICES=$j "$PY" -m dspec_real.router.target_server \
     --target-model "$TARGET" --bind "tcp://127.0.0.1:0" --ready-file "$ready" --reuse \
     "${daddrs[@]}" --gamma 4 --rtt-ms 0 --dtype bfloat16 \
     --no-prefix-caching --gpu-frac 0.90 --max-model-len 1024 \
@@ -86,7 +86,7 @@ for k in 0 1 2; do
   ds_out="$PAIR/$ds"
   mkdir -p "$ds_out"
   echo ">>> tinyllama_llama2_7b $ds n=${counts[$k]}" | tee -a "$PAIR/start.txt"
-  "$PY" -m dsdreal.router.frontend "${taddrs[@]}" --policy rr \
+  "$PY" -m dspec_real.router.frontend "${taddrs[@]}" --policy rr \
     --target-model "$TARGET" --n-drafters 12 --seed 0 \
     --trace "$TRACES/${ds}.jsonl" --prompts "$PROMPTS/${prompt_files[$k]}" \
     --n-requests "${counts[$k]}" --per-draft-rps 0.5 --out "$ds_out" \

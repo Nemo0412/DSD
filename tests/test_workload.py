@@ -1,15 +1,15 @@
-"""Workload: dsdSim trace parsing and token-exact prompt construction."""
+"""Workload: DSpec trace parsing and token-exact prompt construction."""
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
 
-from dsdreal.workload.trace import (
+from dspec_real.workload.trace import (
     TraceEntry, build_requests, load_prompt_texts, load_sim_trace, poisson_arrivals, retime,
 )
 
-DATA = Path(__file__).resolve().parents[1] / "data" / "dsdsim"
+DATA = Path(__file__).resolve().parents[1] / "data" / "dspec_sim"
 
 
 def test_vendored_trace_parses():

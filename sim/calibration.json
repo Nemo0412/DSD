@@ -14,7 +14,7 @@
       "prefill batch  = prefill_base_ms + prefill_ms_per_token * sum(prompt tokens in the batch)",
       "verify batch   = verify_base_ms + verify_ms_per_seq * B + verify_ms_per_token * sum(gamma_i + 1) + verify_ms_per_ctx_token * sum(context_i)",
       "  placeholder: B=1,gamma=4 -> 25.5 ms; B=64,gamma=4 -> 57 ms",
-      "mixed_batch_combine: 'max' = dsdSim's native rule for a batch holding both prefill and verify jobs (latency = max of the two parts); 'sum' = additive (closer to one vLLM step that runs both)"
+      "mixed_batch_combine: 'max' = DSpec's native rule for a batch holding both prefill and verify jobs (latency = max of the two parts); 'sum' = additive (closer to one vLLM step that runs both)"
     ]
   },
   "draft": {
@@ -38,14 +38,14 @@
     },
     "_notes": [
       "draft round = base_ms + ms_per_token * gamma (+ ms_per_token_per_seq * gamma * (seqs on the same drafter - 1), lockstep mode only)",
-      "in async mode dsdSim gives every request its own drafter device, so there is no drafter-side batching/contention"
+      "in async mode DSpec gives every request its own drafter device, so there is no drafter-side batching/contention"
     ]
   },
   "scheduling": {
     "target_batch_window_ms": 0.01,
     "scheduler_max_wait_ms": 0.0,
     "_notes": [
-      "dsdSim batches by waiting up to a window after the first queued job; vLLM continuous batching never waits, so the window is set to ~0 (must be >0 or the target serves one job per batch)"
+      "DSpec batches by waiting up to a window after the first queued job; vLLM continuous batching never waits, so the window is set to ~0 (must be >0 or the target serves one job per batch)"
     ]
   }
 }

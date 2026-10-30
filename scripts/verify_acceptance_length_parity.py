@@ -8,7 +8,7 @@ against a non-spec baseline. Stage 2b (verify_distributed_rtt_sweep.py)
 proved TPOT rises linearly with injected RTT, but its L_bar_effective is
 inferred backwards from a timing slope -- it never measures acceptance
 length directly. This script does: RemoteDraftProposer.configure(...,
-stats=sink) (dsdreal/target/proposer.py) appends one int per non-fresh
+stats=sink) (dspec_real/target/proposer.py) appends one int per non-fresh
 propose() round -- the number of tokens confirmed since the prior round for
 that slot, i.e. accepted draft tokens + the bonus token. That is the
 ground-truth per-round acceptance length, straight from vLLM's own
@@ -83,7 +83,7 @@ def _spec_target(model, gamma, gpu_frac):
         dtype="float32", disable_log_stats=True, max_model_len=MAX_LEN,
         speculative_config={
             "method": "custom_class",
-            "model": "dsdreal.target.proposer.RemoteDraftProposer",
+            "model": "dspec_real.target.proposer.RemoteDraftProposer",
             "num_speculative_tokens": gamma,
         },
     )
@@ -92,9 +92,9 @@ def _spec_target(model, gamma, gpu_frac):
 def run_fused(target_model, draft_model, target_gpu_frac, draft_gpu_frac):
     from vllm import LLM
 
-    from dsdreal.draft.engine_vllm import VllmDraftEngine
-    from dsdreal.proto.transport import InProcessDraftClient
-    from dsdreal.target import proposer
+    from dspec_real.draft.engine_vllm import VllmDraftEngine
+    from dspec_real.proto.transport import InProcessDraftClient
+    from dspec_real.target import proposer
 
     draft_llm = LLM(model=draft_model, gpu_memory_utilization=draft_gpu_frac,
                      enforce_eager=True, dtype="float32", disable_log_stats=True,
@@ -115,8 +115,8 @@ def run_fused(target_model, draft_model, target_gpu_frac, draft_gpu_frac):
 
 
 def run_distributed(target_model, draft_addr, target_gpu_frac):
-    from dsdreal.proto.transport import ZmqDraftClient
-    from dsdreal.target import proposer
+    from dspec_real.proto.transport import ZmqDraftClient
+    from dspec_real.target import proposer
 
     client = ZmqDraftClient({"d0": draft_addr})
     stats: list[int] = []

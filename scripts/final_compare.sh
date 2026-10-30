@@ -1,5 +1,5 @@
 #!/bin/bash
-# Real Table 3 (from NYULAB) vs dsdSim, calibrated from the real runs.
+# Real Table 3 (from NYULAB) vs DSpec, calibrated from the real runs.
 #
 #   scripts/final_compare.sh [LOCAL_OUT=runs/table3_final]
 #
@@ -17,7 +17,7 @@ cd "$(dirname "$0")/.."
 OUT=${1:-runs/table3_final}
 SCR=${SIM_ROOT:-$(pwd)/.sim}
 SIMPY=${SIMPY:-$SCR/venv/bin/python}
-export DSDSIM_ROOT=${DSDSIM_ROOT:-$SCR/dsdSim}
+export DSPEC_SIM_ROOT=${DSPEC_SIM_ROOT:-$(pwd)}
 PY=${PY:-.venv/bin/python}
 mkdir -p "$OUT"
 [ "${FETCH:-1}" = 1 ] && ssh -o BatchMode=yes NYULAB "cd /mnt/hdd/external/dsd/dsd-real/runs/${REMOTE_RUN:-table3} && tar czf - --exclude='*.log' --exclude='*.ready' --exclude='outputs.jsonl' ." \
@@ -42,7 +42,7 @@ if [[ " ${methods[*]} " == *" eagle3 "* ]]; then
     $PY sim/calibrate_from_run.py "$OUT"/eagle3_N{1,2,4,7} --method eagle --base "$cal" -o "$cal_e" > "$OUT/calibration.eagle.fit.json"
     $PY - "$OUT" <<'EOF'
 import json, sys
-from dsdreal.policy.window import AcceptanceProfile
+from dspec_real.policy.window import AcceptanceProfile
 out = sys.argv[1]
 ctx, rows = {}, []
 for n in (1, 2, 4, 7):
@@ -70,7 +70,7 @@ for m in ("vanilla", "specpp", "eagle3"):
             real.setdefault(r["request_id"], r["prompt_len"])
     except FileNotFoundError:
         pass
-with open("data/dsdsim/gsm8k_trace_master.jsonl") as src, open(dst, "w") as f:
+with open("data/dspec_sim/gsm8k_trace_master.jsonl") as src, open(dst, "w") as f:
     for line in src:
         if line.strip():
             d = json.loads(line)

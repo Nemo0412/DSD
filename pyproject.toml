@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "dsd-real"
+name = "DSpec"
 version = "0.1.0"
-description = "Real distributed speculative decoding testbed for end-to-end validation of DSD-Sim"
+description = "Real distributed speculative decoding testbed for end-to-end validation of DSpec"
 requires-python = ">=3.10"
 # Kept in sync with requirements/base.txt. The GPU stack is an extra on
 # purpose: the transport layer and its tests must never need vLLM.
@@ -22,8 +22,8 @@ gpu = ["vllm == 0.27.1", "torch == 2.13.0"]
 dev = ["pytest >= 8.0", "pytest-timeout >= 2.3"]
 
 [project.entry-points."vllm.general_plugins"]
-dsdreal = "dsdreal.target.plugin:register"
-dsdreal_probe = "dsdreal.target.plugin:register_probe"
+dspec_real = "dspec_real.target.plugin:register"
+dspec_real_probe = "dspec_real.target.plugin:register_probe"
 
 [tool.setuptools.packages.find]
-include = ["dsdreal*"]
+include = ["dspec_real*"]

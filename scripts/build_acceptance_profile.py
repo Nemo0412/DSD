@@ -13,7 +13,7 @@ import argparse
 import json
 from pathlib import Path
 
-from dsdreal.policy.window import AcceptanceProfile
+from dspec_real.policy.window import AcceptanceProfile
 
 
 def main() -> int:

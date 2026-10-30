@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run full DSD-Sim WAN RTT sensitivity experiments."""
+"""Run full DSpec WAN RTT sensitivity experiments."""
 
 from __future__ import annotations
 
@@ -78,7 +78,7 @@ def _prepare_config(
             raise ValueError("WAN sweep expects one draft label")
         counts[next(iter(counts))] = draft_count
 
-    # DSD-Sim stores forward and response delays separately. Configure each
+    # DSpec stores forward and response delays separately. Configure each
     # direction to half of the requested end-to-end round-trip time.
     connectivity = cluster.setdefault("connectivity", {})
     connectivity.pop("network_model", None)

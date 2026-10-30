@@ -1,12 +1,12 @@
-# dsd-real：分布式投机解码真实系统（DSD-Sim 的端到端验证）
+# DSpec 真实系统：分布式投机解码（DSpec 仿真器的端到端验证）
 
 ## Context
 
-`22045_DSD_Sim_A_Simulation_Fra.pdf`（DSD-Sim, arXiv:2511.21669）是一个**离散事件仿真器**：SimPy 建模 N 个 draft 节点 : M 个 target 节点，VIDUR 预测 GPU 延迟，可配置 RTT/jitter/fat-tree 网络，可插拔 routing / batching / speculation-window 策略，回放硬件采集的 `acceptance_seq`。它自己的 Limitations 明写：
+`22045_DSD_Sim_A_Simulation_Fra.pdf`（DSpec, arXiv:2511.21669）是一个**离散事件仿真器**：SimPy 建模 N 个 draft 节点 : M 个 target 节点，VIDUR 预测 GPU 延迟，可配置 RTT/jitter/fat-tree 网络，可插拔 routing / batching / speculation-window 策略，回放硬件采集的 `acceptance_seq`。它自己的 Limitations 明写：
 
-> DSD-Sim is component-calibrated rather than end-to-end validated against a physical multi-node speculative decoding stack, so its largest-scale metrics should be interpreted as system-level projections.
+> DSpec is component-calibrated rather than end-to-end validated against a physical multi-node speculative decoding stack, so its largest-scale metrics should be interpreted as system-level projections.
 
-`dsd-real` 补的就是这一句。目标**不是**造一个更快的 serving 系统，而是造一个**指标口径与仿真器一一对齐的、可复现的验证台**。所有取舍据此：**可控性和可观测性 > 峰值性能**。
+`DSpec` 补的就是这一句。目标**不是**造一个更快的 serving 系统，而是造一个**指标口径与仿真器一一对齐的、可复现的验证台**。所有取舍据此：**可控性和可观测性 > 峰值性能**。
 
 用户已确认：租单机多卡即可；采样设置以 paper 为准（paper 未指定 temperature，本计划按 T=0 greedy 走，见 §6）。
 
@@ -43,7 +43,7 @@ nano-vllm 唯一的真优势（varlen prefill 天然支持 batch 内变长 γ、
 所以有两条等价的接入路径，**先走第一条，把"必须升级到某个版本"从关键路径上拿掉**：
 
 ```python
-# dsdreal/target/proposer.py
+# dspec_real/target/proposer.py
 from vllm.v1.spec_decode.ngram_proposer import NgramProposer
 
 class RemoteDraftProposer(NgramProposer):
@@ -52,7 +52,7 @@ class RemoteDraftProposer(NgramProposer):
                 token_ids_cpu, slot_mappings=None) -> list[list[int]]: ...
 ```
 
-启动时 `--speculative-config '{"method":"ngram","num_speculative_tokens":8,"prompt_lookup_max":8}'`（`config/speculative.py:587` 会令 `draft_model_config = target_model_config`，**target 进程里不会真的加载第二个模型**），再用 `vllm.general_plugins` entry point 猴补 `GPUModelRunner.__init__` 换掉 `self.drafter`。`dsdreal/target/compat.py` 探测到 `custom_class` 可用时自动切原生路径：
+启动时 `--speculative-config '{"method":"ngram","num_speculative_tokens":8,"prompt_lookup_max":8}'`（`config/speculative.py:587` 会令 `draft_model_config = target_model_config`，**target 进程里不会真的加载第二个模型**），再用 `vllm.general_plugins` entry point 猴补 `GPUModelRunner.__init__` 换掉 `self.drafter`。`dspec_real/target/compat.py` 探测到 `custom_class` 可用时自动切原生路径：
 
 ```bash
 python -c "import typing; from vllm.config.speculative import SpeculativeMethod as M; print('custom_class' in typing.get_args(M))"
@@ -63,7 +63,7 @@ python -c "import typing; from vllm.config.speculative import SpeculativeMethod 
 1. **"nanovllm 只有一次发到底的 generate"——错。** `LLMEngine` 有 `add_request()` + `step()`，`generate()` 只是 `while not is_finished(): step()` 的包装。（但结论不变，仍不用它。）
 2. **"kv 回滚管理"这个工作量不存在。** paged KV 里回滚 = 逻辑长度减法，物理 block 不动，被拒 KV 下一步被新 `slot_mapping` 覆盖。
 3. **"padding+mask 还是 varlen 打包"不用纠结。** vLLM 的 spec 路径本来就逐请求变长。
-4. **RFC #42109 是空的。**（@laviier，2026-05-08 开，零评论零 PR）它提的架构和你 context.md 26–32 行推出来的是同一个东西——你的判断对，但没人替你写。也没有可 fork 的先例：DSI 自己是仿真器，DSD-Sim 未放码，FlowSpec 是 pipeline 并行，SGLang 的 `STANDALONE` 仍是同进程。
+4. **RFC #42109 是空的。**（@laviier，2026-05-08 开，零评论零 PR）它提的架构和你 context.md 26–32 行推出来的是同一个东西——你的判断对，但没人替你写。也没有可 fork 的先例：DSI 自己是仿真器，DSpec 未放码，FlowSpec 是 pipeline 并行，SGLang 的 `STANDALONE` 仍是同进程。
 
 ---
 
@@ -106,7 +106,7 @@ python -c "import typing; from vllm.config.speculative import SpeculativeMethod 
 
 L1 够算 acceptance ratio、mean accepted length、γ 决策——**AWC 需要的反馈信号全在 L1。**
 
-**但 L2 不是可选的：** §5 定的 `acceptance_seq` 用 `full_window` 约定，首次拒绝之后那些位的 bit 是"target 在该位置的 argmax 是否等于 draft token"，`sampled_token_ids` 里没有，**只能从 `logits` 算**。若作者确认 DSD-Sim 吃 `prefix` 约定，L1 就够，L2 退化为只服务 V5。→ **这就是 §11 第 1 问必须在 Stage 0 问掉的原因。**
+**但 L2 不是可选的：** §5 定的 `acceptance_seq` 用 `full_window` 约定，首次拒绝之后那些位的 bit 是"target 在该位置的 argmax 是否等于 draft token"，`sampled_token_ids` 里没有，**只能从 `logits` 算**。若作者确认 DSpec 吃 `prefix` 约定，L1 就够，L2 退化为只服务 V5。→ **这就是 §11 第 1 问必须在 Stage 0 问掉的原因。**
 
 L2/L3 碰内部实现，**静默失效比崩掉危险**（会让 `acceptance_seq` 悄悄少一半位）。故 Stage 0 增加 **K7**：断言包好的 hook 确实被触发，且捕获到的 `metadata.num_draft_tokens` 之和等于本步 γ 之和。
 
@@ -121,11 +121,11 @@ L2/L3 碰内部实现，**静默失效比崩掉危险**（会让 `acceptance_seq
 `Scheduler.schedule()`（`scheduler.py:310`）里 batch 组成由 (a) `self.waiting` 的出队顺序、(b) token budget 压力下 `self.running` 的顺序 决定。
 
 **在 (a) 做。** 两个理由：
-1. **对齐**：DSD-Sim 是 request 级的，没有常驻 GPU batch 可重排，它的 LAB 必然是准入时分组。重排 `self.running` 会实现一个仿真器根本不建模的策略——那是反目标的。
+1. **对齐**：DSpec 是 request 级的，没有常驻 GPU batch 可重排，它的 LAB 必然是准入时分组。重排 `self.running` 会实现一个仿真器根本不建模的策略——那是反目标的。
 2. **安全**：`self.running` 顺序牵连 `InputBatch` 持久 slot、condense、抢占（`scheduler.py:462` 抢占的是**最后一个**）。爆炸半径大、对齐价值低。
 
 ```python
-# dsdreal/target/scheduler_lab.py
+# dspec_real/target/scheduler_lab.py
 class LABRequestQueue(RequestQueue):     # v1/core/sched/request_queue.py 的 ABC
     """队首请求定义长度桶；batching window 内优先弹同桶请求。"""
 class LABScheduler(Scheduler):
@@ -134,7 +134,7 @@ class LABScheduler(Scheduler):
         if dsd_env.batching_policy == "lab":
             self.waiting = LABRequestQueue(...)
 ```
-启动：`--scheduler-cls dsdreal.target.scheduler_lab.LABScheduler`，零 fork。
+启动：`--scheduler-cls dspec_real.target.scheduler_lab.LABScheduler`，零 fork。
 
 长度估计器要诚实：回放时用 trace 里的 `prompt_length + output_length`（oracle LAB，和仿真器持平），同时提供 `--lab-oracle false` 的在线估计版，**两个都报，差值本身是个保真度数字**。
 
@@ -143,14 +143,14 @@ class LABScheduler(Scheduler):
 ## 四、仓库结构
 
 ```
-dsd-real/
+DSpec/
 ├── pyproject.toml                    # entry-points."vllm.general_plugins"
 ├── constraints/vllm-0.21.0.txt       # 精确 pin
 ├── configs/{local_fused_1x1,local_dist_1x1,rented_2t_8d,sim_parity_fattree_4096}.yaml
-├── configs/schema/dsd_config.schema.json    # 与 DSD-Sim 的契约
+├── configs/schema/dsd_config.schema.json    # 与 DSpec 的契约
 ├── data/legacy_calibration/          # spec/output/*.json 冻结副本
 ├── data/traces/*.jsonl
-├── dsdreal/
+├── dspec_real/
 │   ├── config/{model,auto_topology,loader,to_sim_yaml}.py
 │   ├── proto/{messages,transport}.py       # msgspec.Struct + DEALER/ROUTER
 │   ├── netem/{base,sleep,tc,null}.py
@@ -188,7 +188,7 @@ class WindowPolicy(Protocol):   def choose(self, req, snap) -> tuple[int, ExecMo
 
 ## 五、指标对齐（最大的风险点，代码之前先定死）
 
-| 指标 | dsd-real 定义 | 对齐陷阱 |
+| 指标 | DSpec 定义 | 对齐陷阱 |
 |---|---|---|
 | **TTFT** | `first_token_ts − arrival_time`，`arrival_time` 在 **router frontend 入口**打戳 | vLLM 自己的 `RequestStateStats.arrival_time`（`v1/metrics/stats.py:202`）从 engine-core 准入起算，**会漏掉 routing + 排队等待**。必须覆盖。**头号陷阱。** |
 | **TPOT** | `(last_token_ts − first_token_ts) / (num_output_tokens − 1)`，按**接受的 token**算，不是按 engine step | `spec/metrics.py:126` 已经修对了，别改回去 |
@@ -205,7 +205,7 @@ class WindowPolicy(Protocol):   def choose(self, req, snap) -> tuple[int, ExecMo
 - **(A) `full_window`**：每步记全部 γ 位（含首次拒绝之后的位），长度 `Σ γ_i`
 - **(B) `prefix`**：只记到首个 `0`，长度 `Σ (num_accepted_i + 1)`
 
-token-match 接受下 target 本来就在 γ+1 个位置都算了 argmax，所以 (A) 能产出。**按 (A) 导出并显式写 `"acceptance_seq_convention": "full_window"`，同时导出 `spec_steps[].{gamma, num_accepted}`**——(A)+γ 可无损转 (B)，反过来不行。提供 `trace.to_prefix_convention()`。然后**发一封三行邮件问原作者 DSD-Sim 吃哪种**，五分钟的问题，猜错要重跑。
+token-match 接受下 target 本来就在 γ+1 个位置都算了 argmax，所以 (A) 能产出。**按 (A) 导出并显式写 `"acceptance_seq_convention": "full_window"`，同时导出 `spec_steps[].{gamma, num_accepted}`**——(A)+γ 可无损转 (B)，反过来不行。提供 `trace.to_prefix_convention()`。然后**发一封三行邮件问原作者 DSpec 吃哪种**，五分钟的问题，猜错要重跑。
 
 **更深的问题也要说破：** 回放 `acceptance_seq` 预设了接受行为只是 `(draft_model, target_model, prompt)` 的函数。它不是——改 γ 会改变拒绝点，文本发散，bit 就失效了。论文在 SpecDec++ 的 γ∈{2,4,6,8} 上照样回放。**真机能量化这个误差，别人不能**——见下面的 V5，这是本项目最新颖的一块，而且几乎免费。
 
@@ -213,9 +213,9 @@ token-match 接受下 target 本来就在 γ+1 个位置都算了 argmax，所�
 
 ## 六、网络仿真：默认必须是 sleep，不是 tc netem
 
-关键认识：**DSD-Sim 自己的网络模型就是个 sleep**（*"Network links are represented as delay elements … parameterized by configurable RTT and jitter"*），NS-3 是用来**标定**这个抽象的，不是替代它。
+关键认识：**DSpec 自己的网络模型就是个 sleep**（*"Network links are represented as delay elements … parameterized by configurable RTT and jitter"*），NS-3 是用来**标定**这个抽象的，不是替代它。
 
-所以要验证 DSD-Sim，主路径必须**复现它的抽象**。默认用 `tc netem` 反而会引入 TCP 拥塞控制、真实排队、带宽限制——仿真器根本不建模的东西，测出来的偏差说明不了它对自己模型的保真度。
+所以要验证 DSpec，主路径必须**复现它的抽象**。默认用 `tc netem` 反而会引入 TCP 拥塞控制、真实排队、带宽限制——仿真器根本不建模的东西，测出来的偏差说明不了它对自己模型的保真度。
 
 - **默认 `SleepDelayEmulator`（对齐模式）**：`proto/transport.py` 在 send/recv 两侧各 `await asyncio.sleep(base_ms/2 + jitter)`。抖动分布要和仿真器一致（多半是截断正态，配置项 `jitter_dist: {normal, uniform, none}`，**问作者确认**）。`asyncio.sleep` 有 ~50–200 µs 粒度，RTT ≥ 0.5 ms 时 <5% 误差；更小的用 `sleep(d-200µs)` + 自旋。**把 emulator 自己的"实际 vs 请求"延迟分布测出来放附录**，先手堵掉审稿人必问的一句。
 - **`TcNetemEmulator`（真实性消融）**：需 `NET_ADMIN`；单机多进程时 `lo` 上 netem 不直接生效，要每个 drafter 一个 netns + veth 对。跑**一个**配置对比，报 `Δ(TPOT_netem, TPOT_sleep)`——这个数把论文的 NS-3 标定延伸到真硬件，是实打实的增量贡献。
@@ -256,9 +256,9 @@ token-match 接受下 target 本来就在 γ+1 个位置都算了 argmax，所�
 
 **V4 批处理**（对应 Fig.7–8）：只需 M=1，最便宜。FIFO vs LAB，验两条：LAB 降 TPOT、两者吞吐天花板相同。**LAB 增益要同时报绝对 ms 和 TPOT 占比**（论文的"1–2 ms"是在 20–28 ms 上，≈5–8%；你的硬件 TPOT 不同，可比的是比例）。oracle/online 估计器两个变体都跑。
 
-**V5 `acceptance_seq` 的 γ-不变性**（无仿真器对应项，**全新**）：在 γ=4 录 trace，然后在 γ∈{2,6,8} 和 AWC 下实跑，测实际接受 bit 与 γ=4 录制的偏离（bit 流编辑距离、ΔL̄、ΔTPOT），再让 DSD-Sim 回放 γ=4 trace 跑同样的 γ 做对比。**直接量化回放方法论的保真度代价。** 便宜、新颖，把论文的一条 limitation 变成一个测出来的数。
+**V5 `acceptance_seq` 的 γ-不变性**（无仿真器对应项，**全新**）：在 γ=4 录 trace，然后在 γ∈{2,6,8} 和 AWC 下实跑，测实际接受 bit 与 γ=4 录制的偏离（bit 流编辑距离、ΔL̄、ΔTPOT），再让 DSpec 回放 γ=4 trace 跑同样的 γ 做对比。**直接量化回放方法论的保真度代价。** 便宜、新颖，把论文的一条 limitation 变成一个测出来的数。
 
-**V6 头条误差表**：论文格式的 8–12 行 `Config | Metric | Real | DSD-Sim | Rel.err`，加一张 sim-vs-real 散点 + y=x + MAPE。**别承诺 3%**——论文的 3.2–4.4% 是**组件**误差；端到端 10–25% 是正常且诚实的结果。贡献的表述是："首次对 DSD-Sim 做端到端验证，端到端误差 X%，四条策略结论均在趋势层面吻合。"
+**V6 头条误差表**：论文格式的 8–12 行 `Config | Metric | Real | DSpec | Rel.err`，加一张 sim-vs-real 散点 + y=x + MAPE。**别承诺 3%**——论文的 3.2–4.4% 是**组件**误差；端到端 10–25% 是正常且诚实的结果。贡献的表述是："首次对 DSpec 做端到端验证，端到端误差 X%，四条策略结论均在趋势层面吻合。"
 
 **V7 外推边界图**：一条 N=8 的竖线，左边实测、右边仿真投影加阴影，图注写明外推假设。这是**正面回应**论文的 limitation，而不是假装消灭了它。
 
@@ -272,7 +272,7 @@ token-match 接受下 target 本来就在 γ+1 个位置都算了 argmax，所�
 
 所以：`temperature=0, --enforce-eager, VLLM_ENABLE_V1_MULTIPROCESSING=0`，固定种子，200 条 GSM8K × γ∈{1,2,4,8}。**fp32 断言逐 token 相同（这是无损性证明）；bf16 只断言首次分歧位置分布和 ≥99% 前缀一致率并记录**。绝不写一个断言 bf16 精确相等的测试——它会永远 flake，而且你已经知道原因了。
 
-**范围声明**：`draft_probs=None` → token-match 接受，**T=0 无损，但不是 Leviathan 随机拒绝采样**。明写：**dsd-real 验证的是 greedy/T=0 的分布式 SD**；T>0 需要把 draft 概率也传过网络并 patch model runner，v1 范围外，列为 limitation。
+**范围声明**：`draft_probs=None` → token-match 接受，**T=0 无损，但不是 Leviathan 随机拒绝采样**。明写：**DSpec 验证的是 greedy/T=0 的分布式 SD**；T>0 需要把 draft 概率也传过网络并 patch model runner，v1 范围外，列为 limitation。
 
 **KV 回滚（`test_kv_rollback.py`）**：① `PoisonDrafter` 在位置 k 故意给错 token，断言输出仍与 baseline 逐 token 相同且 `num_accepted == k`；② 连续 20 步强制位置 0 拒绝，断言 KV block 用量不超过非投机 baseline（O(1) 回滚证明）；③ **prefix cache 安全**：开 `enable_prefix_caching`，先跑重度拒绝的请求 A，再跑同 prompt 的请求 B，断言 B ≡ A ≡ baseline（"未确认投机 token 被封进前缀缓存"这个隐患）。
 
@@ -284,7 +284,7 @@ token-match 接受下 target 本来就在 γ+1 个位置都算了 argmax，所�
 
 ## 十、分阶段、工作量、终止判据
 
-### Stage 0 — Hook 验证（0.5 天）**最先做，一行 `dsdreal/` 代码都别写**
+### Stage 0 — Hook 验证（0.5 天）**最先做，一行 `dspec_real/` 代码都别写**
 
 `scripts/verify_vllm_hooks.py` 六个探针，每个都是终止判据：
 
@@ -318,7 +318,7 @@ token-match 接受下 target 本来就在 γ+1 个位置都算了 argmax，所�
 Manifest ~40–60 配置，每个 3–6 分钟：V3 63 个（M=2, N=8 T2）／V4 30 个（M=1）／V5 5 个／V6 12 行／tier-overlap 9 个／netem-vs-sleep 4 个。**要砍先砍 V3（最贵），V2 和 V4 最便宜且价值最高。**
 
 ### Stage 6 — 仿真器对跑、对比、出图（3–4 天）
-**你没有 DSD-Sim 的代码。** 要么 (a) 找作者要——**Stage 0 就发信，这是最长的杆**；要么 (b) 只对published 的 Table 2/3/4 和 Fig.5–8，那就只剩 V1、V2、V6-partial、V7。**按 (b) 规划，(a) 当惊喜。** 若拿到 (a)，`config/to_sim_yaml.py` 要早写并用 `sim_parity_fattree_4096.yaml` 验证。
+**你没有 DSpec 的代码。** 要么 (a) 找作者要——**Stage 0 就发信，这是最长的杆**；要么 (b) 只对published 的 Table 2/3/4 和 Fig.5–8，那就只剩 V1、V2、V6-partial、V7。**按 (b) 规划，(a) 当惊喜。** 若拿到 (a)，`config/to_sim_yaml.py` 要早写并用 `sim_parity_fattree_4096.yaml` 验证。
 
 **合计：兼职 ~5–6 周，GPU 租金 ~$50–150。**
 
@@ -342,7 +342,7 @@ Manifest ~40–60 配置，每个 3–6 分钟：V3 63 个（M=2, N=8 T2）／V4
 2. Fig.5–8 的 "50 requests/s" 是全局还是 per draft node？（图只有在供给随 N 增长时才说得通）
 3. 抖动分布：normal / uniform / none？按方向注入还是按 RTT 注入？
 4. "target device utilization" 是算力利用率、KV 占用率、还是忙时占比？三个都说得通且差很多
-5. DSD-Sim 源码能否为验证目的拿到（NDA/embargo 均可）？**现在就问**
+5. DSpec 源码能否为验证目的拿到（NDA/embargo 均可）？**现在就问**
 6. LAB 的长度估计器：仿真器用的是 trace 里的 oracle `output_length`，还是在线估计？（决定你哪个变体才是对齐运行）
 
 ---
@@ -354,19 +354,19 @@ Manifest ~40–60 配置，每个 3–6 分钟：V3 63 个（M=2, N=8 T2）／V4
 python scripts/verify_vllm_hooks.py
 
 # 1. fused 单进程 + 无损性
-python -m dsdreal.experiments.driver --config configs/local_fused_1x1.yaml
+python -m dspec_real.experiments.driver --config configs/local_fused_1x1.yaml
 pytest tests/test_lossless.py tests/test_kv_rollback.py tests/test_variable_gamma.py
 
 # 2. 分布式 RTT=0（真 ZMQ 无延迟）——隔离出 IPC 开销
-python -m dsdreal.experiments.driver --config configs/local_dist_1x1.yaml \
+python -m dspec_real.experiments.driver --config configs/local_dist_1x1.yaml \
        --override network.emulator=null
 
 # 3. RTT 扫描——验证 emulator 本身；TPOT 必须随 RTT 线性
 for rtt in 0 0.25 0.5 1 2 5; do
-  python -m dsdreal.experiments.driver --config configs/local_dist_1x1.yaml \
+  python -m dspec_real.experiments.driver --config configs/local_dist_1x1.yaml \
          --override network.rtt_ms=$rtt --out runs/rtt_$rtt
 done
-python -m dsdreal.metrics.compare --sweep runs/rtt_* --expect linear-tpot-vs-rtt
+python -m dspec_real.metrics.compare --sweep runs/rtt_* --expect linear-tpot-vs-rtt
 
 # 4. 指标自洽 + trace 往返
 pytest tests/test_metric_parity.py tests/test_acceptance_seq_roundtrip.py

@@ -1,6 +1,6 @@
 # Acceptance Sequence Replay
 
-`DSD-Sim` prefers **hardware-collected `acceptance_seq` replay** for paper experiments.
+`DSpec` prefers **hardware-collected `acceptance_seq` replay** for paper experiments.
 
 1. **Replay mode (main path).**  
    Each JSONL request includes an `acceptance_seq` field: a list of `0/1` bits in draft-token order collected from real draft--target speculative decoding. When present, verification consumes this sequence and does **not** sample from a probabilistic model.
