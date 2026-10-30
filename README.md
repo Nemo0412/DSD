@@ -72,7 +72,18 @@ Linear `acceptance_seq` is insufficient for EAGLE. Record one object per verific
 
 Also retain the tree topology or parent index for every submitted candidate when it cannot be reconstructed from `accepted_branch`.
 
-`tree_accept` is currently preserved by the trace tooling, but the EAGLE controller does not yet replay these hardware tree logs. Do not label existing EAGLE-style controller results as hardware-log replay. After collecting logs, add the replay adapter that charges draft generation and target verification from `candidates`/`verified`, advances output by `accepted_path_len`, and then re-run the node-scale sweep.
+With `framework: eagle`, a request that carries `tree_accept` replays it one entry per verification round (`src/trace/tree_accept.py`). Each round advances the output by `accepted_path_len + 1` (the accepted path plus the target's token). The target verifies `tree_nodes` candidates in one batch job; when that field is missing, `verified` and then `candidates` are used. Draft generation and target verification latencies still come from the calibrated performance models. Once a request's log runs out, the controller falls back to `acceptance_seq` or the acceptance predictor.
+
+The EAGLE controller also models the hidden-state traffic and draft-side initialization of distributed EAGLE. These settings live under `speculation.eagle`:
+
+| Key | Default | Effect |
+|---|---|---|
+| `hidden_dim` | 4096 | Target hidden-state width |
+| `hidden_state_bytes_per_value` | 2.0 | Bytes per hidden-state value |
+| `tree_index_bytes_per_node` | 4.0 | Tree-structure bytes sent per candidate node |
+| `feature_init_base_ms`, `feature_init_ms_per_token` | 0.0 | Draft feature initialization over the prompt, charged once before the first tree |
+
+The prefill reply carries the prompt's hidden states. Each verify reply carries the hidden states of the committed tokens. These bytes only change latency when the network has a bandwidth (`network.bandwidth_mbps`).
 
 ### Acceptance sensitivity re-simulation
 

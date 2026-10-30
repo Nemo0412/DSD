@@ -20,6 +20,7 @@ from network.fabric import NetworkFabric
 from trace.trace_loader import iter_trace_records
 from trace.types import TraceRecord, TraceParseError
 from trace.acceptance_seq import AcceptanceSeqCursor
+from trace.tree_accept import TreeAcceptCursor
 from acceptance.regressor import AcceptanceRegressor
 
 # ---------- Config & Types ----------
@@ -2494,6 +2495,21 @@ class DraftServer:
             print(f"Warning: Target {target_id} not found for draft {self.id}", flush=True)
             return
 
+        # The EAGLE head drafts from target features: the prefill reply
+        # carries the prompt's hidden states, each verify reply carries the
+        # accepted path's.
+        hidden_dim = max(0, int(self._get_eagle_param("hidden_dim", 4096)))
+        hidden_value_bytes = max(0.0, float(self._get_eagle_param("hidden_state_bytes_per_value", 2.0)))
+        hidden_bytes_per_position = hidden_dim * hidden_value_bytes
+        tree_index_bytes = max(0.0, float(self._get_eagle_param("tree_index_bytes_per_node", 4.0)))
+        feature_init_base_ms = max(0.0, float(self._get_eagle_param("feature_init_base_ms", 0.0)))
+        feature_init_ms_per_token = max(0.0, float(self._get_eagle_param("feature_init_ms_per_token", 0.0)))
+        tree_cursor = (
+            TreeAcceptCursor.from_optional(trace_record.tree_accept)
+            if trace_record is not None
+            else None
+        )
+
         prefill_completion = self.env.event()
         prefill_job = Job(
             jid=self.chunks_sent,
@@ -2550,7 +2566,10 @@ class DraftServer:
                 target_id,
                 self.id,
                 conn.response_latency_ms,
-                payload_bytes=self._estimate_payload_bytes(prompt_length, self._response_overhead_bytes),
+                payload_bytes=self._estimate_payload_bytes(
+                    prompt_length,
+                    self._response_overhead_bytes + prompt_length * hidden_bytes_per_position,
+                ),
                 link_key=conn.network_response_key,
             )
             response_elapsed = self.env.now - rsp_start
@@ -2562,6 +2581,14 @@ class DraftServer:
         prefill_compute = max(0.0, (prefill_job.finished_ms - prefill_started) if prefill_started is not None and prefill_job.finished_ms is not None else 0.0)
         ttft_breakdown["prefill_queue_ms"] += prefill_queue
         ttft_breakdown["prefill_compute_ms"] += prefill_compute
+
+        # The head builds its features over the prompt before the first tree.
+        feature_init_ms = 0.0
+        if not fused_mode:
+            feature_init_ms = feature_init_base_ms + feature_init_ms_per_token * prompt_length
+        if feature_init_ms > 0:
+            yield self.env.timeout(feature_init_ms)
+        ttft_breakdown["draft_feature_init_ms"] = feature_init_ms
 
         beam_width = max(1, int(self._get_eagle_param("beam_width", 4)))
         max_depth = max(1, int(self._get_eagle_param("max_depth", self.gamma)))
@@ -2627,6 +2654,9 @@ class DraftServer:
             # still returns that path; total_tokens is the forward width.
             total_tokens = max(1, int(self._get_eagle_param("total_tokens", branch_depth)))
             tree_nodes = max(branch_depth, total_tokens)
+            replay_round = tree_cursor.next_round() if tree_cursor is not None and tree_cursor.has_data() else None
+            if replay_round is not None and replay_round.tree_nodes > 0:
+                tree_nodes = replay_round.tree_nodes
             if fused_mode:
                 generation_latency = 0.0
             else:
@@ -2640,7 +2670,7 @@ class DraftServer:
             raw_candidates: List[BranchCandidate] = []
             candidates: List[BranchCandidate] = []
             pruned_candidates = 0
-            for idx in range(beam_current):
+            for idx in range(0 if replay_round is not None else beam_current):
                 score = self._estimate_branch_score(branch_depth, conn, current_context_len)
                 branch = BranchCandidate(idx, branch_depth, score)
                 raw_candidates.append(branch)
@@ -2666,7 +2696,18 @@ class DraftServer:
                 )
 
             cursor = getattr(self, "_active_acceptance_cursor", None)
-            if cursor is not None and cursor.has_data():
+            if replay_round is not None:
+                # Measured tree round: the target accepted this path out of
+                # tree_nodes scored candidates.
+                self.total_tokens_generated += tree_nodes
+                tokens_generated += tree_nodes
+                chosen = VerifyResult(
+                    chunk_id=self.chunks_sent,
+                    accepted_tokens=replay_round.accepted,
+                    rejected_tokens=max(0, tree_nodes - replay_round.accepted),
+                    total_tokens=tree_nodes,
+                )
+            elif cursor is not None and cursor.has_data():
                 chosen = self._simulate_verification(
                     branch_depth,
                     conn,
@@ -2714,6 +2755,28 @@ class DraftServer:
             )
             self.chunks_sent += 1
 
+            if not fused_mode:
+                fwd_start = self.env.now
+                yield self._network_transfer(
+                    self.id,
+                    target_id,
+                    conn.forward_latency_ms,
+                    # Candidate tokens plus the tree structure (parent index per node).
+                    payload_bytes=self._estimate_payload_bytes(
+                        tree_nodes,
+                        self._decode_overhead_bytes + tree_nodes * tree_index_bytes,
+                    ),
+                    link_key=conn.network_forward_key,
+                )
+                forward_elapsed = self.env.now - fwd_start
+            else:
+                forward_elapsed = 0.0
+            decode_breakdown["forward_ms"] += forward_elapsed
+            if ttft_pending:
+                ttft_breakdown["decode_forward_ms"] += forward_elapsed
+
+            # The tree reaches the target before it can be queued for verification.
+            job.created_ms = self.env.now
             if self.scheduler is None:
                 target = self._target_lookup.get(target_id)
                 if target is None:
@@ -2726,22 +2789,6 @@ class DraftServer:
                     wait_event = job.completion_event
             else:
                 wait_event = self.scheduler.submit_job(job)
-
-            if not fused_mode:
-                fwd_start = self.env.now
-                yield self._network_transfer(
-                    self.id,
-                    target_id,
-                    conn.forward_latency_ms,
-                    payload_bytes=self._estimate_payload_bytes(tree_nodes, self._decode_overhead_bytes),
-                    link_key=conn.network_forward_key,
-                )
-                forward_elapsed = self.env.now - fwd_start
-            else:
-                forward_elapsed = 0.0
-            decode_breakdown["forward_ms"] += forward_elapsed
-            if ttft_pending:
-                ttft_breakdown["decode_forward_ms"] += forward_elapsed
 
             yield wait_event
 
@@ -2758,12 +2805,18 @@ class DraftServer:
                 ttft_breakdown["decode_compute_ms"] += compute_elapsed
 
             if not fused_mode:
+                # Accepted path plus the target token, and their hidden states
+                # for the next round's drafting.
+                committed = min(tokens_remaining, chosen.accepted_tokens + 1)
                 rsp_start = self.env.now
                 yield self._network_transfer(
                     target_id,
                     self.id,
                     conn.response_latency_ms,
-                    payload_bytes=self._estimate_payload_bytes(tree_nodes, self._response_overhead_bytes),
+                    payload_bytes=self._estimate_payload_bytes(
+                        committed,
+                        self._response_overhead_bytes + committed * hidden_bytes_per_position,
+                    ),
                     link_key=conn.network_response_key,
                 )
                 response_elapsed = self.env.now - rsp_start
